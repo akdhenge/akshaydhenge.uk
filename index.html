@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Akshay Dhenge | Embedded Engineer by Day, Tinkerer by Night</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* ============ RESET & BASE ============ */
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #0a0a0f;
+            --bg-card: #12121a;
+            --bg-card-hover: #1a1a2e;
+            --accent: #7c3aed;
+            --accent-glow: rgba(124, 58, 237, 0.3);
+            --accent2: #06b6d4;
+            --accent3: #f59e0b;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --text-bright: #f8fafc;
+            --border: #1e1e2e;
+            --success: #10b981;
+            --love: #f43f5e;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* ============ ANIMATED BACKGROUND ============ */
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background-image:
+                linear-gradient(rgba(124, 58, 237, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(124, 58, 237, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+        }
+
+        .bg-glow {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: 0.15;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .bg-glow--1 {
+            top: -200px;
+            left: -100px;
+            background: var(--accent);
+            animation: float1 20s ease-in-out infinite;
+        }
+
+        .bg-glow--2 {
+            bottom: -200px;
+            right: -100px;
+            background: var(--accent2);
+            animation: float2 25s ease-in-out infinite;
+        }
+
+        @keyframes float1 {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(100px, 80px); }
+        }
+
+        @keyframes float2 {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(-80px, -60px); }
+        }
+
+        /* ============ CURSOR FOLLOWER ============ */
+        .cursor-glow {
+            position: fixed;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--accent-glow), transparent 70%);
+            pointer-events: none;
+            z-index: 1;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        body:hover .cursor-glow { opacity: 1; }
+
+        /* ============ NAV ============ */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 1rem 2rem;
+            backdrop-filter: blur(20px);
+            background: rgba(10, 10, 15, 0.8);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-logo {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--accent);
+        }
+
+        .nav-logo span { color: var(--text-dim); }
+
+        .nav-links { display: flex; gap: 2rem; list-style: none; }
+
+        .nav-links a {
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.3s;
+            position: relative;
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--accent);
+            transition: width 0.3s;
+        }
+
+        .nav-links a:hover { color: var(--text-bright); }
+        .nav-links a:hover::after { width: 100%; }
+
+        .nav-burger {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 4px;
+        }
+
+        .nav-burger span {
+            width: 24px;
+            height: 2px;
+            background: var(--text);
+            transition: 0.3s;
+        }
+
+        /* ============ HERO ============ */
+        .hero {
+            position: relative;
+            z-index: 2;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6rem 2rem 4rem;
+        }
+
+        .hero-content {
+            max-width: 800px;
+            text-align: center;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 1rem;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: rgba(124, 58, 237, 0.08);
+            font-size: 0.8rem;
+            color: var(--accent);
+            font-weight: 500;
+            margin-bottom: 1.5rem;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        .hero-badge .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-weight: 700;
+            line-height: 1.1;
+            margin-bottom: 1rem;
+            animation: fadeInDown 0.8s ease-out 0.1s both;
+        }
+
+        .hero h1 .gradient {
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-tagline {
+            font-size: 1.2rem;
+            color: var(--text-dim);
+            max-width: 600px;
+            margin: 0 auto 2rem;
+            animation: fadeInDown 0.8s ease-out 0.2s both;
+        }
+
+        .hero-terminal {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: left;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            max-width: 550px;
+            margin: 0 auto 2.5rem;
+            animation: fadeInUp 0.8s ease-out 0.3s both;
+        }
+
+        .terminal-dots {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 1rem;
+        }
+
+        .terminal-dots span {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .terminal-dots span:nth-child(1) { background: #f43f5e; }
+        .terminal-dots span:nth-child(2) { background: #f59e0b; }
+        .terminal-dots span:nth-child(3) { background: #10b981; }
+
+        .terminal-line { margin-bottom: 0.3rem; }
+        .terminal-prompt { color: var(--success); }
+        .terminal-cmd { color: var(--text-bright); }
+        .terminal-comment { color: var(--text-dim); }
+        .terminal-output { color: var(--accent2); }
+
+        .typing-cursor {
+            display: inline-block;
+            width: 8px;
+            height: 16px;
+            background: var(--accent);
+            margin-left: 2px;
+            animation: blink 1s step-end infinite;
+            vertical-align: text-bottom;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        .hero-cta {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            animation: fadeInUp 0.8s ease-out 0.4s both;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-decoration: none;
+            transition: all 0.3s;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn--primary {
+            background: var(--accent);
+            color: white;
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .btn--primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 30px var(--accent-glow);
+        }
+
+        .btn--outline {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn--outline:hover {
+            border-color: var(--accent);
+            background: rgba(124, 58, 237, 0.05);
+            transform: translateY(-2px);
+        }
+
+        /* ============ SECTIONS ============ */
+        section {
+            position: relative;
+            z-index: 2;
+            padding: 5rem 2rem;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .section-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 0.5rem;
+        }
+
+        .section-title {
+            font-size: clamp(1.8rem, 4vw, 2.5rem);
+            font-weight: 700;
+            color: var(--text-bright);
+        }
+
+        .section-subtitle {
+            color: var(--text-dim);
+            margin-top: 0.5rem;
+            font-size: 1rem;
+        }
+
+        /* ============ ABOUT ============ */
+        .about-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            align-items: center;
+        }
+
+        .about-text p {
+            margin-bottom: 1rem;
+            color: var(--text-dim);
+        }
+
+        .about-text p strong { color: var(--text-bright); }
+
+        .about-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .stat-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 30px rgba(124, 58, 237, 0.1);
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-top: 0.25rem;
+        }
+
+        /* ============ SKILLS ============ */
+        .skills-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .skill-tag {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+
+        .skill-tag:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            background: var(--bg-card-hover);
+        }
+
+        .skill-icon {
+            font-size: 1.3rem;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            background: rgba(124, 58, 237, 0.1);
+        }
+
+        /* ============ EXPERIENCE / RESUME ============ */
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(to bottom, var(--accent), var(--accent2), transparent);
+        }
+
+        .timeline-item {
+            position: relative;
+            padding-bottom: 2.5rem;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -2rem;
+            top: 6px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--accent);
+            border: 3px solid var(--bg);
+            transform: translateX(-5px);
+        }
+
+        .timeline-date {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--accent);
+            margin-bottom: 0.25rem;
+        }
+
+        .timeline-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-bright);
+        }
+
+        .timeline-company {
+            font-size: 0.9rem;
+            color: var(--accent2);
+            margin-bottom: 0.5rem;
+        }
+
+        .timeline-desc {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+
+        /* ============ PROJECTS ============ */
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .project-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.75rem;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .project-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .project-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(124, 58, 237, 0.1);
+        }
+
+        .project-card:hover::before { opacity: 1; }
+
+        .project-emoji {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .project-title {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: var(--text-bright);
+            margin-bottom: 0.5rem;
+        }
+
+        .project-desc {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+
+        .project-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .project-tags span {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 6px;
+            background: rgba(124, 58, 237, 0.1);
+            color: var(--accent);
+            border: 1px solid rgba(124, 58, 237, 0.2);
+        }
+
+        .project-links {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .project-links a {
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            transition: color 0.3s;
+        }
+
+        .project-links a:hover { color: var(--accent); }
+
+        /* Featured project (valentine) */
+        .project-card--featured {
+            border-color: rgba(244, 63, 94, 0.3);
+            background: linear-gradient(135deg, var(--bg-card), rgba(244, 63, 94, 0.03));
+        }
+
+        .project-card--featured:hover {
+            border-color: var(--love);
+            box-shadow: 0 12px 40px rgba(244, 63, 94, 0.1);
+        }
+
+        .project-card--featured::before {
+            background: linear-gradient(90deg, var(--love), var(--accent3));
+        }
+
+        /* Home assistant special */
+        .project-card--ha {
+            border-color: rgba(6, 182, 212, 0.3);
+            background: linear-gradient(135deg, var(--bg-card), rgba(6, 182, 212, 0.03));
+        }
+
+        .project-card--ha:hover {
+            border-color: var(--accent2);
+            box-shadow: 0 12px 40px rgba(6, 182, 212, 0.1);
+        }
+
+        .project-card--ha::before {
+            background: linear-gradient(90deg, var(--accent2), var(--success));
+        }
+
+        /* ============ EASTER EGG SECTION ============ */
+        .fun-section {
+            background: var(--bg-card);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .fun-content {
+            max-width: 700px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .fun-quote {
+            font-size: 1.3rem;
+            font-style: italic;
+            color: var(--text-dim);
+            margin-bottom: 0.5rem;
+        }
+
+        .fun-quote strong {
+            color: var(--text-bright);
+        }
+
+        .fun-attribution {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--accent);
+        }
+
+        .konami-hint {
+            margin-top: 1.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            opacity: 0.5;
+        }
+
+        /* ============ SOCIALS ============ */
+        .socials-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .social-card {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.25rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            text-decoration: none;
+            color: var(--text);
+            transition: all 0.3s;
+        }
+
+        .social-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--accent);
+            background: var(--bg-card-hover);
+        }
+
+        .social-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            flex-shrink: 0;
+        }
+
+        .social-icon--github { background: rgba(255, 255, 255, 0.1); }
+        .social-icon--linkedin { background: rgba(10, 102, 194, 0.2); }
+        .social-icon--twitter { background: rgba(29, 155, 240, 0.2); }
+        .social-icon--email { background: rgba(124, 58, 237, 0.2); }
+
+        .social-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .social-handle {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+
+        /* ============ FOOTER ============ */
+        footer {
+            position: relative;
+            z-index: 2;
+            border-top: 1px solid var(--border);
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+
+        .footer-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+
+        .footer-text a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .footer-text a:hover { text-decoration: underline; }
+
+        .footer-joke {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            opacity: 0.6;
+            margin-top: 0.5rem;
+        }
+
+        .footer-coffee {
+            margin-top: 1rem;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+
+        /* ============ ANIMATIONS ============ */
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ============ STATUS BAR ============ */
+        .status-bar {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            z-index: 100;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.6rem 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+
+        .status-bar:hover { opacity: 1; }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        /* ============ KONAMI CODE EASTER EGG ============ */
+        .konami-active {
+            animation: rainbow 2s linear infinite;
+        }
+
+        @keyframes rainbow {
+            0% { filter: hue-rotate(0deg); }
+            100% { filter: hue-rotate(360deg); }
+        }
+
+        .confetti-container {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 999;
+        }
+
+        /* ============ RESPONSIVE ============ */
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .nav-burger { display: flex; }
+
+            .nav-links.active {
+                display: flex;
+                flex-direction: column;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background: rgba(10, 10, 15, 0.95);
+                backdrop-filter: blur(20px);
+                padding: 1.5rem 2rem;
+                border-bottom: 1px solid var(--border);
+                gap: 1rem;
+            }
+
+            .about-grid { grid-template-columns: 1fr; }
+            .projects-grid { grid-template-columns: 1fr; }
+            .hero-terminal { font-size: 0.75rem; }
+
+            .status-bar { display: none; }
+
+            section { padding: 3rem 1.5rem; }
+        }
+
+        /* ============ SCROLL PROGRESS ============ */
+        .scroll-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            z-index: 200;
+            transition: width 0.1s;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Background elements -->
+    <div class="bg-grid"></div>
+    <div class="bg-glow bg-glow--1"></div>
+    <div class="bg-glow bg-glow--2"></div>
+    <div class="cursor-glow" id="cursorGlow"></div>
+    <div class="scroll-progress" id="scrollProgress"></div>
+
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-logo">akshay<span>.dhenge</span></div>
+        <ul class="nav-links" id="navLinks">
+            <li><a href="#about">About</a></li>
+            <li><a href="#skills">Skills</a></li>
+            <li><a href="#experience">Experience</a></li>
+            <li><a href="#projects">Projects</a></li>
+            <li><a href="#contact">Contact</a></li>
+        </ul>
+        <button class="nav-burger" id="navBurger" aria-label="Toggle menu">
+            <span></span><span></span><span></span>
+        </button>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero" id="hero">
+        <div class="hero-content">
+            <div class="hero-badge">
+                <span class="dot"></span>
+                Jack of all trades, master of few
+            </div>
+            <h1>Hey, I'm <span class="gradient">Akshay Dhenge</span></h1>
+            <p class="hero-tagline">
+                Embedded engineer, chronic tinkerer, and the guy who automates his house
+                then spends twice as long debugging the automation.
+            </p>
+            <div class="hero-terminal">
+                <div class="terminal-dots">
+                    <span></span><span></span><span></span>
+                </div>
+                <div class="terminal-line">
+                    <span class="terminal-prompt">~$</span>
+                    <span class="terminal-cmd"> whoami</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="terminal-output">Embedded Engineer | Automotive | Tinkerer of All Things</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="terminal-prompt">~$</span>
+                    <span class="terminal-cmd"> cat /proc/akshay/skills</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="terminal-comment"># C, C++, Python, AUTOSAR, CAN, SPI... and whatever</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="terminal-comment"># Claude/GPT teaches me at 2 AM for my side projects</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="terminal-prompt">~$</span>
+                    <span class="typing-cursor"></span>
+                </div>
+            </div>
+            <div class="hero-cta">
+                <a href="#projects" class="btn btn--primary">View My Work &darr;</a>
+                <a href="#contact" class="btn btn--outline">Get In Touch</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- About -->
+    <section id="about">
+        <div class="container">
+            <div class="section-header reveal">
+                <div class="section-label">// about me</div>
+                <h2 class="section-title">The Person Behind the ECU</h2>
+                <p class="section-subtitle">Spoiler: I also exist outside of debugger sessions. Sometimes.</p>
+            </div>
+            <div class="about-grid">
+                <div class="about-text reveal">
+                    <p>
+                        <strong>Hello there!</strong> I'm Akshay &mdash; an embedded engineer in the automotive
+                        industry by profession, and a tinkerer of <em>everything else</em> by passion.
+                        I write firmware that makes cars smarter by day, and hack together
+                        smart home automations by night. My house runs on Home Assistant,
+                        my Ender 3 Pro runs when it feels like it, and my morning coffee...
+                        okay, I still make that manually. <em>For now.</em>
+                    </p>
+                    <p>
+                        I like to describe myself as a <strong>"Jack of all trades, master of few"</strong> &mdash;
+                        I don't know JavaScript, Java, or web hosting inside out, but when I need it for a cool project,
+                        I'll get Claude or GPT to explain it at 2 AM, learn just enough to be dangerous, and ship it.
+                        That's the engineer way.
+                    </p>
+                    <p>
+                        When I'm not soldering or coding, you'll find me 3D printing things nobody asked for,
+                        painting &amp; sketching, doing random DIY projects, or out in nature
+                        with my camera &mdash; which, since marriage, has mostly transitioned
+                        from "nature photography" to "wife photography." No complaints though.
+                    </p>
+                </div>
+                <div class="about-stats reveal">
+                    <div class="stat-card">
+                        <div class="stat-number">&infin;</div>
+                        <div class="stat-label">Cups of Coffee</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">1</div>
+                        <div class="stat-label">3D Printer (Ender 3 Pro)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">1</div>
+                        <div class="stat-label">Smart Home (mostly works)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">0</div>
+                        <div class="stat-label">Bugs in Production*</div>
+                    </div>
+                </div>
+            </div>
+            <p style="text-align: right; font-size: 0.7rem; color: var(--text-dim); opacity: 0.5; margin-top: 1rem;">
+                *Results may vary. In embedded, we call them "unexpected hardware behaviour."
+            </p>
+        </div>
+    </section>
+
+    <!-- Skills -->
+    <section id="skills">
+        <div class="container">
+            <div class="section-header reveal">
+                <div class="section-label">// tech stack</div>
+                <h2 class="section-title">Things I Break &amp; Then Fix</h2>
+                <p class="section-subtitle">Professional weapons + whatever I Googled at 2 AM for a side project</p>
+            </div>
+            <div class="skills-grid reveal">
+                <div class="skill-tag"><span class="skill-icon">&#9881;</span> C / Embedded C</div>
+                <div class="skill-tag"><span class="skill-icon">&#9883;</span> C++</div>
+                <div class="skill-tag"><span class="skill-icon">&#128013;</span> Python</div>
+                <div class="skill-tag"><span class="skill-icon">&#128663;</span> AUTOSAR</div>
+                <div class="skill-tag"><span class="skill-icon">&#128268;</span> CAN Bus</div>
+                <div class="skill-tag"><span class="skill-icon">&#128260;</span> SPI / I2C</div>
+                <div class="skill-tag"><span class="skill-icon">&#128295;</span> Test Automation</div>
+                <div class="skill-tag"><span class="skill-icon">&#127968;</span> Home Assistant</div>
+                <div class="skill-tag"><span class="skill-icon">&#129302;</span> GPT / Claude (my co-pilot)</div>
+                <div class="skill-tag"><span class="skill-icon">&#128424;</span> 3D Printing</div>
+                <div class="skill-tag"><span class="skill-icon">&#127912;</span> Painting / Sketching</div>
+                <div class="skill-tag"><span class="skill-icon">&#128247;</span> Photography</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Experience / Resume -->
+    <section id="experience">
+        <div class="container">
+            <div class="section-header reveal">
+                <div class="section-label">// experience</div>
+                <h2 class="section-title">Where I've Committed (Code &amp; Firmware)</h2>
+                <p class="section-subtitle">A brief history of turning caffeine into embedded software</p>
+            </div>
+            <!-- UPDATE: Replace with your actual experience details -->
+            <div class="timeline reveal">
+                <div class="timeline-item">
+                    <div class="timeline-date">20XX &mdash; Present</div>
+                    <div class="timeline-title">Embedded Software Engineer</div>
+                    <div class="timeline-company">Automotive Company &mdash; UPDATE THIS</div>
+                    <div class="timeline-desc">
+                        Writing firmware that goes into actual cars on actual roads.
+                        Wrangling AUTOSAR, debugging CAN traces, and convincing
+                        microcontrollers to cooperate. No segfaults in production.
+                        (That you can prove.)
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-date">20XX &mdash; 20XX</div>
+                    <div class="timeline-title">Previous Role &mdash; UPDATE THIS</div>
+                    <div class="timeline-company">Previous Company &mdash; UPDATE THIS</div>
+                    <div class="timeline-desc">
+                        Learned that "it works on my bench" is not a deployment strategy.
+                        Discovered the joy of reading 800-page datasheets and the pain
+                        of off-by-one errors in register configurations.
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-date">20XX &mdash; 20XX</div>
+                    <div class="timeline-title">Your Degree &mdash; UPDATE THIS</div>
+                    <div class="timeline-company">Your University &mdash; UPDATE THIS</div>
+                    <div class="timeline-desc">
+                        Where it all began. Survived microprocessors class.
+                        Learned that blinking an LED is easy, but blinking it
+                        <em>exactly</em> at 1Hz with zero drift is an entire semester.
+                    </div>
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 2rem;" class="reveal">
+                <!-- PLACEHOLDER: Link to your actual resume PDF -->
+                <a href="#" class="btn btn--outline">&#128196; Download Full Resume</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Fun break -->
+    <section class="fun-section">
+        <div class="container">
+            <div class="fun-content reveal">
+                <p class="fun-quote">
+                    "Any sufficiently advanced home automation is
+                    <strong>indistinguishable from a haunted house.</strong>"
+                </p>
+                <p class="fun-attribution">&mdash; Akshay's wife, definitely, at 3 AM when the Ender 3 started a print</p>
+                <p class="konami-hint">Psst... try the Konami code &uarr;&uarr;&darr;&darr;&larr;&rarr;&larr;&rarr;BA</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Projects -->
+    <section id="projects">
+        <div class="container">
+            <div class="section-header reveal">
+                <div class="section-label">// projects</div>
+                <h2 class="section-title">Things I've Built (That Actually Work)</h2>
+                <p class="section-subtitle">From smart homes to love letters &mdash; powered by curiosity and Claude at 2 AM</p>
+            </div>
+            <div class="projects-grid">
+
+                <!-- Home Assistant -->
+                <div class="project-card project-card--ha reveal">
+                    <div class="project-emoji">&#127968;</div>
+                    <div class="project-title">Smart Home Central</div>
+                    <div class="project-desc">
+                        My Home Assistant setup &mdash; connected to Google Assistant via
+                        HomeGraph API. Because an embedded engineer's home should be at least
+                        as smart as the cars he programs. It's also why this landing page exists &mdash;
+                        Google needed a public URL. You're welcome.
+                    </div>
+                    <div class="project-tags">
+                        <span>Home Assistant</span>
+                        <span>Google HomeGraph</span>
+                        <span>IoT</span>
+                    </div>
+                    <div class="project-links">
+                        <a href="https://ha.akshaydhenge.uk" target="_blank">&#127760; Live &rarr;</a>
+                    </div>
+                </div>
+
+                <!-- Valentine Page -->
+                <div class="project-card project-card--featured reveal">
+                    <div class="project-emoji">&#128151;</div>
+                    <div class="project-title">Valentine's Day Page</div>
+                    <div class="project-desc">
+                        A special page for my wife. Yes, an embedded C engineer used
+                        HTML/CSS/JS for romance. Yes, I asked GPT for help. Yes, it worked.
+                        The ROI on this project was immeasurable.
+                    </div>
+                    <div class="project-tags">
+                        <span>HTML</span>
+                        <span>CSS</span>
+                        <span>Love</span>
+                        <span>GPT-Assisted</span>
+                    </div>
+                    <div class="project-links">
+                        <!-- PLACEHOLDER: Update with actual GitHub URL -->
+                        <a href="https://github.com/YOUR_USERNAME/valentine" target="_blank">&#128187; GitHub &rarr;</a>
+                        <a href="#" target="_blank">&#127760; Live &rarr;</a>
+                    </div>
+                </div>
+
+                <!-- This Landing Page -->
+                <div class="project-card reveal">
+                    <div class="project-emoji">&#127760;</div>
+                    <div class="project-title">This Very Website</div>
+                    <div class="project-desc">
+                        Built by an embedded engineer who barely knows HTML, with a lot of
+                        help from Claude. Proof that you don't need to master a skill &mdash;
+                        you just need to know the right AI to ask.
+                    </div>
+                    <div class="project-tags">
+                        <span>HTML</span>
+                        <span>CSS</span>
+                        <span>Claude-Powered</span>
+                        <span>Cloudflare</span>
+                    </div>
+                    <div class="project-links">
+                        <a href="https://akshaydhenge.uk" target="_blank">&#127760; You're here! &rarr;</a>
+                    </div>
+                </div>
+
+                <!-- 3D Printing -->
+                <div class="project-card reveal">
+                    <div class="project-emoji">&#128424;</div>
+                    <div class="project-title">3D Printing Adventures</div>
+                    <div class="project-desc">
+                        Ender 3 Pro owner. I print enclosures for my electronics projects,
+                        random household fixes, and occasionally things that actually look
+                        good. The bed leveling is a spiritual experience.
+                    </div>
+                    <div class="project-tags">
+                        <span>Ender 3 Pro</span>
+                        <span>FDM</span>
+                        <span>DIY</span>
+                    </div>
+                    <div class="project-links">
+                        <a href="#" target="_blank">&#128187; GitHub &rarr;</a>
+                    </div>
+                </div>
+
+                <!-- Placeholder for future projects -->
+                <div class="project-card reveal" style="border-style: dashed; opacity: 0.6;">
+                    <div class="project-emoji">&#128640;</div>
+                    <div class="project-title">Next Project Loading...</div>
+                    <div class="project-desc">
+                        Always tinkering with something new. If it can be built, automated,
+                        or 3D printed &mdash; it's probably on my weekend to-do list.
+                        Check back soon or follow my GitHub.
+                    </div>
+                    <div class="project-tags">
+                        <span>Coming Soon</span>
+                        <span>TBD</span>
+                    </div>
+                    <div class="project-links">
+                        <!-- PLACEHOLDER: Your GitHub profile -->
+                        <a href="https://github.com/YOUR_USERNAME" target="_blank">&#128187; Follow on GitHub &rarr;</a>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact / Socials -->
+    <section id="contact">
+        <div class="container">
+            <div class="section-header reveal">
+                <div class="section-label">// contact</div>
+                <h2 class="section-title">Let's Build Something Cool</h2>
+                <p class="section-subtitle">Or just say hi. I don't bite. My microcontrollers might though (ESD is no joke).</p>
+            </div>
+            <!-- PLACEHOLDER: Update all social links -->
+            <div class="socials-grid reveal">
+                <a href="https://github.com/YOUR_USERNAME" target="_blank" class="social-card">
+                    <div class="social-icon social-icon--github">&#128025;</div>
+                    <div>
+                        <div class="social-name">GitHub</div>
+                        <div class="social-handle">@your_username</div>
+                    </div>
+                </a>
+                <a href="https://linkedin.com/in/YOUR_PROFILE" target="_blank" class="social-card">
+                    <div class="social-icon social-icon--linkedin">&#128188;</div>
+                    <div>
+                        <div class="social-name">LinkedIn</div>
+                        <div class="social-handle">Akshay Dhenge</div>
+                    </div>
+                </a>
+                <a href="https://twitter.com/YOUR_HANDLE" target="_blank" class="social-card">
+                    <div class="social-icon social-icon--twitter">&#128038;</div>
+                    <div>
+                        <div class="social-name">Twitter / X</div>
+                        <div class="social-handle">@your_handle</div>
+                    </div>
+                </a>
+                <a href="mailto:hello@akshaydhenge.uk" class="social-card">
+                    <div class="social-icon social-icon--email">&#9993;</div>
+                    <div>
+                        <div class="social-name">Email</div>
+                        <div class="social-handle">hello@akshaydhenge.uk</div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p class="footer-text">
+            Crafted with &#9829;, caffeine, and Claude by
+            <a href="#">Akshay Dhenge</a> &copy; 2025
+        </p>
+        <p class="footer-joke">
+            Built by an embedded engineer who had to ask an AI what "flexbox" means. No registers were harmed.
+        </p>
+        <p class="footer-coffee">
+            Powered by &#9749;, curiosity, and a mass amount of "let me just try one more thing"
+        </p>
+    </footer>
+
+    <!-- Status bar -->
+    <div class="status-bar">
+        <span class="status-dot"></span>
+        <span id="statusText">All systems operational</span>
+    </div>
+
+    <!-- Confetti container for Konami -->
+    <div class="confetti-container" id="confetti"></div>
+
+    <script>
+        // ============ CURSOR GLOW ============
+        const cursorGlow = document.getElementById('cursorGlow');
+        document.addEventListener('mousemove', (e) => {
+            cursorGlow.style.left = e.clientX + 'px';
+            cursorGlow.style.top = e.clientY + 'px';
+        });
+
+        // ============ SCROLL PROGRESS ============
+        window.addEventListener('scroll', () => {
+            const scrolled = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
+            document.getElementById('scrollProgress').style.width = scrolled + '%';
+        });
+
+        // ============ REVEAL ON SCROLL ============
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+        // ============ MOBILE NAV ============
+        const navBurger = document.getElementById('navBurger');
+        const navLinks = document.getElementById('navLinks');
+        navBurger.addEventListener('click', () => {
+            navLinks.classList.toggle('active');
+        });
+
+        // Close mobile nav on link click
+        navLinks.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => navLinks.classList.remove('active'));
+        });
+
+        // ============ STATUS BAR FUN ============
+        const statuses = [
+            "All systems operational",
+            "CAN bus: 0 errors | 0 warnings",
+            "Home Assistant: 42 automations running",
+            "Coffee levels: critical - refill needed",
+            "Ender 3 Pro: bed level looks good... for now",
+            "AUTOSAR: still reading the spec (page 4,287 of 12,000)",
+            "Nature photography mode: OFF | Wife photography mode: ON",
+            "Debugging: have you tried toggling the GPIO?",
+            "Currently asking Claude how CSS works",
+            "3D printer: 73% done, please don't fail now",
+            "Embedded engineer writing HTML. What a time to be alive.",
+            "Segfault count today: 0 (personal best)"
+        ];
+
+        let statusIndex = 0;
+        setInterval(() => {
+            statusIndex = (statusIndex + 1) % statuses.length;
+            const statusText = document.getElementById('statusText');
+            statusText.style.opacity = 0;
+            setTimeout(() => {
+                statusText.textContent = statuses[statusIndex];
+                statusText.style.opacity = 1;
+            }, 300);
+        }, 5000);
+
+        // ============ KONAMI CODE EASTER EGG ============
+        const konamiCode = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+        let konamiIndex = 0;
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === konamiCode[konamiIndex]) {
+                konamiIndex++;
+                if (konamiIndex === konamiCode.length) {
+                    activateKonami();
+                    konamiIndex = 0;
+                }
+            } else {
+                konamiIndex = 0;
+            }
+        });
+
+        function activateKonami() {
+            document.body.classList.add('konami-active');
+
+            // Create confetti
+            const container = document.getElementById('confetti');
+            const colors = ['#7c3aed', '#06b6d4', '#f59e0b', '#f43f5e', '#10b981'];
+
+            for (let i = 0; i < 150; i++) {
+                const confetti = document.createElement('div');
+                confetti.style.cssText = `
+                    position: fixed;
+                    width: ${Math.random() * 10 + 5}px;
+                    height: ${Math.random() * 10 + 5}px;
+                    background: ${colors[Math.floor(Math.random() * colors.length)]};
+                    left: ${Math.random() * 100}vw;
+                    top: -20px;
+                    border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
+                    animation: confettiFall ${Math.random() * 3 + 2}s linear forwards;
+                    opacity: ${Math.random() * 0.7 + 0.3};
+                `;
+                container.appendChild(confetti);
+            }
+
+            // Add confetti animation
+            if (!document.getElementById('confetti-style')) {
+                const style = document.createElement('style');
+                style.id = 'confetti-style';
+                style.textContent = `
+                    @keyframes confettiFall {
+                        to {
+                            transform: translateY(110vh) rotate(${Math.random() * 720}deg);
+                            opacity: 0;
+                        }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            // Clean up after animation
+            setTimeout(() => {
+                document.body.classList.remove('konami-active');
+                container.innerHTML = '';
+            }, 5000);
+
+            // Status bar message
+            document.getElementById('statusText').textContent = "Achievement unlocked: Konami Master!";
+        }
+
+        // ============ TYPING EFFECT FOR TERMINAL ============
+        const terminalLines = [
+            { cmd: 'curl -s akshaydhenge.uk/api/status', output: '{"mood":"caffeinated","firmware":"flashing","printer":"printing"}' },
+            { cmd: 'candump can0 | head -1', output: 'can0  7DF   [8]  02 01 0D 00 00 00 00 00' },
+            { cmd: 'echo $SKILLS | tr "," "\\n" | wc -l', output: 'jack_of_all_trades: too many to list' },
+            { cmd: 'cat /proc/hobbies', output: '3d-printing painting photography tinkering wife-photography' },
+        ];
+
+        // Console easter egg
+        console.log('%c Welcome to my corner of the internet! ', 'background: #7c3aed; color: white; font-size: 16px; padding: 8px; border-radius: 4px;');
+        console.log('%c An embedded engineer built this website with AI help. ', 'color: #94a3b8; font-size: 12px;');
+        console.log('%c If you\'re reading this, you probably know what a segfault is. Respect. ', 'color: #94a3b8; font-size: 12px;');
+        console.log('%c Try the Konami code on the page ;) ', 'color: #06b6d4; font-size: 12px;');
+    </script>
+
+</body>
+</html>
