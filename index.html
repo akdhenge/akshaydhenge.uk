@@ -620,6 +620,21 @@
             background: linear-gradient(90deg, var(--love), var(--accent3));
         }
 
+        /* Jellyfin special */
+        .project-card--jellyfin {
+            border-color: rgba(0, 164, 220, 0.3);
+            background: linear-gradient(135deg, var(--bg-card), rgba(0, 164, 220, 0.03));
+        }
+
+        .project-card--jellyfin:hover {
+            border-color: #00a4dc;
+            box-shadow: 0 12px 40px rgba(0, 164, 220, 0.1);
+        }
+
+        .project-card--jellyfin::before {
+            background: linear-gradient(90deg, #00a4dc, var(--accent));
+        }
+
         /* Home assistant special */
         .project-card--ha {
             border-color: rgba(6, 182, 212, 0.3);
@@ -1172,6 +1187,28 @@
                     </div>
                     <div class="project-links">
                         <a href="#" target="_blank">&#128187; GitHub &rarr;</a>
+                    </div>
+                </div>
+
+                <!-- Jellyfin -->
+                <div class="project-card project-card--jellyfin reveal">
+                    <div class="project-emoji">&#127909;</div>
+                    <div class="project-title">JellyFlix &mdash; My Personal Netflix</div>
+                    <div class="project-desc">
+                        Why pay for Netflix, Disney+, <em>and</em> Prime when you can spend a
+                        weekend self-hosting your own media server and call it "engineering"?
+                        My Jellyfin instance runs 24/7, and I've personally rolled out VIP accounts
+                        for a select few friends. They get a full streaming service. I get the
+                        privilege of being their IT support at midnight.
+                    </div>
+                    <div class="project-tags">
+                        <span>Jellyfin</span>
+                        <span>Self-hosted</span>
+                        <span>Docker</span>
+                        <span>Invite-only</span>
+                    </div>
+                    <div class="project-links">
+                        <a href="https://jellyfin.akshaydhenge.uk" target="_blank">&#127760; Live &rarr;</a>
                     </div>
                 </div>
 
