@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.claude/
+*.MOV
+*.mov
+stary_sky.png
+ideas.txt
+tsconfig.app.tsbuildinfo
+tsconfig.node.tsbuildinfo
