@@ -1,0 +1,2670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Akshay Dhenge — Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Space Grotesk for body text, JetBrains Mono for terminal/code aesthetics -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- Spline web component — renders the 3D robot scene via iframe-like shadow DOM -->
+  <script type="module" src="https://unpkg.com/@splinetool/viewer@1.9.28/build/spline-viewer.js"></script>
+  <style>
+    /* Global reset — border-box sizing everywhere */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    /* ── DESIGN TOKENS — warm dark autumn palette ── */
+    :root {
+      --bg: #080503;
+      --accent: #c94f1a;
+      --accent2: #9b2318;
+      --accent3: #d4920c;
+      --text: #f0e6d3;
+      --text-dim: #9a8070;
+      --border: #241510;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    /* Base body — prevents horizontal scroll bleed and rubber-band on mobile */
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+      overscroll-behavior: none;
+    }
+
+    /* ── VIDEO BG ── */
+    #video-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background: var(--bg);
+      transition: opacity 0.6s ease;
+    }
+
+    #video-bg video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+    }
+
+    /* ── SCROLL PROGRESS ── */
+    #progress {
+      position: fixed;
+      top: 0; left: 0;
+      height: 2px;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      z-index: 200;
+      transition: width 0.1s linear;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 3rem;
+      transition: background 0.4s ease, backdrop-filter 0.4s ease, border-bottom 0.4s ease;
+    }
+
+    /* Frosted glass effect applied via JS once user scrolls past 60px */
+    nav.scrolled {
+      background: rgba(8, 5, 3, 0.75);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .nav-logo {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      color: rgba(255,255,255,0.85);
+      letter-spacing: 1px;
+    }
+
+    .nav-logo span { color: var(--accent); }
+
+    /* ── LIMELIGHT NAV — pill container housing all nav items ── */
+    .limelight-nav {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      height: 3.2rem;
+      background: rgba(20, 10, 5, 0.6);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 0.75rem;
+      padding: 0 0.25rem;
+    }
+
+    .limelight-item {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0 1rem;
+      height: 100%;
+      cursor: pointer;
+      text-decoration: none;
+      color: rgba(255,255,255,0.4);
+      font-size: 0.8rem;
+      letter-spacing: 0.3px;
+      transition: color 0.15s ease;
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    .limelight-item svg {
+      width: 1rem;
+      height: 1rem;
+      flex-shrink: 0;
+      transition: opacity 0.15s ease;
+    }
+
+    .limelight-item.active,
+    .limelight-item:hover {
+      color: rgba(255,255,255,0.92);
+    }
+
+    /* Accent underline that slides to the active nav item; starts off-screen (-999px)
+       until JS positions it, then .ready enables the slide transition */
+    .limelight-bar {
+      position: absolute;
+      top: 0;
+      z-index: 1;
+      width: 2.75rem;
+      height: 3px;
+      border-radius: 0 0 4px 4px;
+      background: var(--accent);
+      box-shadow: 0 0 12px 2px var(--accent);
+      pointer-events: none;
+      left: -999px;
+    }
+
+    .limelight-bar.ready {
+      transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Downward light-cone gradient that fans below the active indicator bar */
+    .limelight-cone {
+      position: absolute;
+      left: -30%;
+      top: 3px;
+      width: 160%;
+      height: 3rem;
+      background: linear-gradient(to bottom, rgba(201,79,26,0.25), transparent);
+      clip-path: polygon(5% 100%, 22% 0, 78% 0, 95% 100%);
+      pointer-events: none;
+    }
+
+    /* ── BB8 TOGGLE — pure-CSS BB-8 droid that acts as a day/night switch ──
+       All sizing uses em so the whole widget scales via font-size: var(--toggle-size) */
+    .bb8-toggle {
+      --toggle-size: 6px;
+      --toggle-width: 10.625em;
+      --toggle-height: 5.625em;
+      --toggle-offset: calc((var(--toggle-height) - var(--bb8-diameter)) / 2);
+      --toggle-bg: linear-gradient(#2c4770, #070e2b 35%, #628cac 50% 70%, #a6c5d4) no-repeat;
+      --bb8-diameter: 4.375em;
+      --radius: 99em;
+      --transition: 0.4s;
+      --accent: #de7d2f;
+      --bb8-bg: #fff;
+      cursor: pointer;
+      font-size: var(--toggle-size);
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    #bb8-toggle-wrap {
+      position: fixed;
+      bottom: 4.5rem;
+      right: 1rem;
+      z-index: 100;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    }
+    #bb8-toggle-wrap:hover { opacity: 1; }
+    .bb8-toggle,.bb8-toggle *,.bb8-toggle *::before,.bb8-toggle *::after { box-sizing: border-box; }
+    .bb8-toggle__checkbox { appearance: none; display: none; }
+    .bb8-toggle__container {
+      width: var(--toggle-width);
+      height: var(--toggle-height);
+      background: var(--toggle-bg);
+      background-size: 100% 11.25em;
+      background-position-y: -5.625em;
+      border-radius: var(--radius);
+      position: relative;
+      transition: var(--transition);
+    }
+    .bb8 {
+      display: flex; flex-direction: column; align-items: center;
+      position: absolute;
+      top: calc(var(--toggle-offset) - 1.688em + 0.188em);
+      left: var(--toggle-offset);
+      transition: var(--transition);
+      z-index: 2;
+    }
+    .bb8__head-container {
+      position: relative; transition: var(--transition); z-index: 2;
+      transform-origin: 1.25em 3.75em;
+    }
+    /* BB-8 head dome — detail stripes and sensor eye built entirely from layered CSS gradients */
+    .bb8__head {
+      overflow: hidden; margin-bottom: -0.188em;
+      width: 2.5em; height: 1.688em;
+      background: linear-gradient(transparent .063em,dimgray .063em .313em,transparent .313em .375em,var(--accent) .375em .5em,transparent .5em 1.313em,silver 1.313em 1.438em,transparent 1.438em),
+        linear-gradient(45deg,transparent .188em,var(--bb8-bg) .188em 1.25em,transparent 1.25em),
+        linear-gradient(-45deg,transparent .188em,var(--bb8-bg) .188em 1.25em,transparent 1.25em),
+        linear-gradient(var(--bb8-bg) 1.25em,transparent 1.25em);
+      border-radius: var(--radius) var(--radius) 0 0;
+      position: relative; z-index: 1;
+      filter: drop-shadow(0 .063em .125em gray);
+    }
+    .bb8__head::before {
+      content: "";
+      position: absolute;
+      width: .563em; height: .563em;
+      background: radial-gradient(.125em circle at .25em .375em,red,transparent),
+        radial-gradient(.063em circle at .375em .188em,var(--bb8-bg) 50%,transparent 100%),
+        linear-gradient(45deg,#000 .188em,dimgray .313em .375em,#000 .5em);
+      border-radius: var(--radius);
+      top: .413em; left: 50%;
+      transform: translate(-50%);
+      box-shadow: 0 0 0 .089em lightgray,.563em .281em 0 -.148em,.563em .281em 0 -.1em var(--bb8-bg),.563em .281em 0 -.063em;
+      z-index: 1; transition: var(--transition);
+    }
+    .bb8__head::after {
+      content: "";
+      position: absolute; bottom: .375em; left: 0;
+      width: 100%; height: .188em;
+      background: linear-gradient(to right,var(--accent) .125em,transparent .125em .188em,var(--accent) .188em .313em,transparent .313em .375em,var(--accent) .375em .938em,transparent .938em 1em,var(--accent) 1em 1.125em,transparent 1.125em 1.875em,var(--accent) 1.875em 2em,transparent 2em 2.063em,var(--accent) 2.063em 2.25em,transparent 2.25em 2.313em,var(--accent) 2.313em 2.375em,transparent 2.375em 2.438em,var(--accent) 2.438em);
+      transition: var(--transition);
+    }
+    .bb8__antenna {
+      position: absolute; transform: translateY(-90%);
+      width: .059em; border-radius: var(--radius) var(--radius) 0 0;
+      transition: var(--transition);
+    }
+    .bb8__antenna:nth-child(1) { height: .938em; right: .938em; background: linear-gradient(#000 .188em,silver .188em); }
+    .bb8__antenna:nth-child(2) { height: .375em; left: 50%; transform: translate(-50%,-90%); background: silver; }
+    /* BB-8 spherical body — rotated 45° so gradient stripes form the characteristic diagonal bands */
+    .bb8__body {
+      width: 4.375em; height: 4.375em;
+      border-radius: var(--radius);
+      position: relative; overflow: hidden;
+      transition: var(--transition); z-index: 1;
+      transform: rotate(45deg);
+      background: linear-gradient(-90deg,var(--bb8-bg) 4%,var(--accent) 4% 10%,transparent 10% 90%,var(--accent) 90% 96%,var(--bb8-bg) 96%),
+        linear-gradient(var(--bb8-bg) 4%,var(--accent) 4% 10%,transparent 10% 90%,var(--accent) 90% 96%,var(--bb8-bg) 96%),
+        linear-gradient(to right,transparent 2.156em,silver 2.156em 2.219em,transparent 2.188em),
+        linear-gradient(transparent 2.156em,silver 2.156em 2.219em,transparent 2.188em);
+      background-color: var(--bb8-bg);
+    }
+    .bb8__body::after {
+      content: "";
+      bottom: 1.5em; left: .563em; position: absolute;
+      width: .188em; height: .188em;
+      background: rgb(236,236,236); border-radius: 50%;
+      box-shadow: .875em .938em,0 -1.25em,.875em -2.125em,2.125em -2.125em,3.063em -1.25em,3.063em 0,2.125em .938em;
+      color: rgb(236,236,236);
+    }
+    .bb8__body::before {
+      content: "";
+      width: 2.625em; height: 2.625em;
+      position: absolute; border-radius: 50%;
+      top: 50%; left: 50%; transform: translate(-50%,-50%);
+      border: .313em solid var(--accent);
+      background: radial-gradient(1em circle at center,rgb(236,236,236) 50%,transparent 51%),
+        radial-gradient(1.25em circle at center,var(--bb8-bg) 50%,transparent 51%),
+        linear-gradient(-90deg,transparent 42%,var(--accent) 42% 58%,transparent 58%),
+        linear-gradient(var(--bb8-bg) 42%,var(--accent) 42% 58%,var(--bb8-bg) 58%);
+    }
+    .artificial__hidden { position: absolute; border-radius: inherit; inset: 0; pointer-events: none; overflow: hidden; }
+    .bb8__shadow {
+      width: var(--bb8-diameter); height: 20%;
+      border-radius: 50%;
+      background: #3a271c;
+      box-shadow: .313em 0 3.125em #3a271c;
+      opacity: .25;
+      position: absolute; bottom: 0;
+      left: calc(var(--toggle-offset) - .938em);
+      transition: var(--transition);
+      transform: skew(-70deg); z-index: 1;
+    }
+    .bb8-toggle__scenery { width: 100%; height: 100%; pointer-events: none; overflow: hidden; position: relative; border-radius: inherit; }
+    .bb8-toggle__scenery::before { content: ""; position: absolute; width: 100%; height: 30%; bottom: 0; background: #b18d71; z-index: 1; }
+    .bb8-toggle__cloud { z-index: 1; position: absolute; border-radius: 50%; }
+    .bb8-toggle__cloud:nth-last-child(1) { width: .875em; height: .625em; filter: blur(.125em) drop-shadow(.313em .313em #ffffffae) drop-shadow(-.625em 0 #fff) drop-shadow(-.938em -.125em #fff); right: 1.875em; top: 2.813em; background: linear-gradient(to top right,#ffffffae,#ffffffae); transition: var(--transition); }
+    .bb8-toggle__cloud:nth-last-child(2) { top: .625em; right: 4.375em; width: .875em; height: .375em; background: #dfdedeae; filter: blur(.125em) drop-shadow(-.313em -.188em #e0dfdfae) drop-shadow(-.625em -.188em #bbbbbbae) drop-shadow(-1em .063em #cfcfcfae); transition: .6s; }
+    .bb8-toggle__cloud:nth-last-child(3) { top: 1.25em; right: .938em; width: .875em; height: .375em; background: #ffffffae; filter: blur(.125em) drop-shadow(.438em .188em #ffffffae) drop-shadow(-.625em .313em #ffffffae); transition: .8s; }
+    .gomrassen,.hermes,.chenini { position: absolute; border-radius: var(--radius); background: linear-gradient(#fff,#6e8ea2); top: 100%; }
+    .gomrassen { left: .938em; width: 1.875em; height: 1.875em; box-shadow: 0 0 .188em #ffffff52,0 0 .188em #6e8ea24b; transition: var(--transition); }
+    .gomrassen::before,.gomrassen::after { content: ""; position: absolute; border-radius: inherit; box-shadow: inset 0 0 .063em rgb(140,162,169); background: rgb(184,196,200); }
+    .gomrassen::before { left: .313em; top: .313em; width: .438em; height: .438em; }
+    .gomrassen::after { width: .25em; height: .25em; left: 1.25em; top: .75em; }
+    .hermes { left: 3.438em; width: .625em; height: .625em; box-shadow: 0 0 .125em #ffffff52,0 0 .125em #6e8ea24b; transition: .6s; }
+    .chenini { left: 4.375em; width: .5em; height: .5em; box-shadow: 0 0 .125em #ffffff52,0 0 .125em #6e8ea24b; transition: .8s; }
+    .tatto-1,.tatto-2 { position: absolute; width: 1.25em; height: 1.25em; border-radius: var(--radius); }
+    .tatto-1 { background: #fefefe; right: 3.125em; top: .625em; box-shadow: 0 0 .438em #fdf4e1; transition: var(--transition); }
+    .tatto-2 { background: linear-gradient(#e6ac5c,#d75449); right: 1.25em; top: 2.188em; box-shadow: 0 0 .438em #e6ad5c3d,0 0 .438em #d755494f; transition: .7s; }
+    .bb8-toggle__star { position: absolute; width: .063em; height: .063em; background: #fff; border-radius: var(--radius); filter: drop-shadow(0 0 .063em #fff); color: #fff; top: 100%; }
+    .bb8-toggle__star:nth-child(1) { left: 3.75em; box-shadow: 1.25em .938em,-1.25em 2.5em,0 1.25em,1.875em .625em,-3.125em 1.875em,1.25em 2.813em; transition: .2s; }
+    .bb8-toggle__star:nth-child(2) { left: 4.688em; box-shadow: .625em 0,0 .625em,-.625em -.625em,.625em .938em,-3.125em 1.25em,1.25em -1.563em; transition: .3s; }
+    .bb8-toggle__star:nth-child(3) { left: 5.313em; box-shadow: -.625em -.625em,-2.188em 1.25em,-2.188em 0,-3.75em -.625em,-3.125em -.625em,-2.5em -.313em,.75em -.625em; transition: var(--transition); }
+    .bb8-toggle__star:nth-child(4) { left: 1.875em; width: .125em; height: .125em; transition: .5s; }
+    .bb8-toggle__star:nth-child(5) { left: 5em; width: .125em; height: .125em; transition: .6s; }
+    .bb8-toggle__star:nth-child(6) { left: 2.5em; width: .125em; height: .125em; transition: .7s; }
+    .bb8-toggle__star:nth-child(7) { left: 3.438em; width: .125em; height: .125em; transition: .8s; }
+    /* checked = night mode: stars slide in, clouds slide out, BB-8 rolls right, sky gradient shifts */
+    .bb8-toggle__checkbox:checked + .bb8-toggle__container .bb8-toggle__star:nth-child(1) { top: .625em; }
+    .bb8-toggle__checkbox:checked + .bb8-toggle__container .bb8-toggle__star:nth-child(2) { top: 1.875em; }
+    .bb8-toggle__checkbox:checked + .bb8-toggle__container .bb8-toggle__star:nth-child(3) { top: 1.25em; }
+    .bb8-toggle__checkbox:checked + .bb8-toggle__container .bb8-toggle__star:nth-child(4) { top: 3.438em; }
+    .bb8-toggle__checkbox:checked + .bb8-toggle__container .bb8-toggle__star:nth-child(5) { top: 3.438em; }
+    .bb8-toggle__checkbox:checked + .bb8-toggle__container .bb8-toggle__star:nth-child(6) { top: .313em; }
+    .bb8-toggle__checkbox:checked + .bb8-toggle__container .bb8-toggle__star:nth-child(7) { top: 1.875em; }
+    .bb8-toggle__checkbox:checked + .bb8-toggle__container .bb8-toggle__cloud { right: -100%; }
+    .bb8-toggle__checkbox:checked + .bb8-toggle__container .gomrassen { top: .938em; }
+    .bb8-toggle__checkbox:checked + .bb8-toggle__container .hermes { top: 2.5em; }
+    .bb8-toggle__checkbox:checked + .bb8-toggle__container .chenini { top: 2.75em; }
+    .bb8-toggle__checkbox:checked + .bb8-toggle__container { background-position-y: 0; }
+    .bb8-toggle__checkbox:checked + .bb8-toggle__container .tatto-1 { top: 100%; }
+    .bb8-toggle__checkbox:checked + .bb8-toggle__container .tatto-2 { top: 100%; }
+    .bb8-toggle__checkbox:checked + .bb8-toggle__container .bb8 { left: calc(100% - var(--bb8-diameter) - var(--toggle-offset)); }
+    .bb8-toggle__checkbox:checked + .bb8-toggle__container .bb8__shadow { left: calc(100% - var(--bb8-diameter) - var(--toggle-offset) + .938em); transform: skew(70deg); }
+    .bb8-toggle__checkbox:checked + .bb8-toggle__container .bb8__body { transform: rotate(225deg); }
+    .bb8-toggle__checkbox:hover + .bb8-toggle__container .bb8__head::before { left: 100%; }
+    .bb8-toggle__checkbox:not(:checked):hover + .bb8-toggle__container .bb8__antenna:nth-child(1) { right: 1.5em; }
+    .bb8-toggle__checkbox:hover + .bb8-toggle__container .bb8__antenna:nth-child(2) { left: .938em; }
+    .bb8-toggle__checkbox:hover + .bb8-toggle__container .bb8__head::after { background-position: 1.375em 0; }
+    .bb8-toggle__checkbox:checked:hover + .bb8-toggle__container .bb8__head::before { left: 0; }
+    .bb8-toggle__checkbox:checked:hover + .bb8-toggle__container .bb8__antenna:nth-child(2) { left: calc(100% - .938em); }
+    .bb8-toggle__checkbox:checked:hover + .bb8-toggle__container .bb8__head::after { background-position: -1.375em 0; }
+    .bb8-toggle__checkbox:active + .bb8-toggle__container .bb8__head-container { transform: rotate(25deg); }
+    .bb8-toggle__checkbox:checked:active + .bb8-toggle__container .bb8__head-container { transform: rotate(-25deg); }
+
+    /* ── HERO — full-viewport landing section, text anchored bottom-left ── */
+    #hero {
+      position: relative;
+      height: 100dvh;
+      display: flex;
+      align-items: flex-end;
+      padding: 0 4rem 6rem 12%;
+      z-index: 10;
+    }
+
+    /* Spline 3D robot — fixed position, starts hidden (opacity:0); fades in only
+       when the contact section is visible (controlled by IntersectionObserver in JS).
+       Placed at body level in HTML so z-index:500 is not clipped by hero's stacking context. */
+    #hero-robot {
+      position: fixed;
+      left: 20%;
+      bottom: 22%;
+      width: 20%;
+      height: 41%;
+      z-index: 500;
+      pointer-events: all;
+      opacity: 0;
+      transition: opacity 0.6s ease;
+    }
+
+    #hero-robot spline-viewer {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+    }
+
+    /* Overlay: clear at top, heavy at bottom for text */
+    #hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to bottom,
+        rgba(8,5,3,0.05) 0%,
+        rgba(8,5,3,0.0)  25%,
+        rgba(8,5,3,0.35) 60%,
+        rgba(8,5,3,0.92) 100%
+      );
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* Left vignette for text readability */
+    #hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to right,
+        rgba(8,5,3,0.6) 0%,
+        rgba(8,5,3,0.15) 40%,
+        transparent 100%
+      );
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      max-width: 640px;
+    }
+
+    /* Small label above the hero headline (role tags) — fades up on page load */
+    .eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      animation: fadeInUp 0.7s ease-out both;
+    }
+
+    .eyebrow-line {
+      width: 2rem;
+      height: 1px;
+      background: var(--accent3);
+    }
+
+    .eyebrow-text {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--accent3);
+      text-transform: uppercase;
+      letter-spacing: 4px;
+    }
+
+    h1 {
+      font-size: clamp(3rem, 8vw, 6.5rem);
+      font-weight: 700;
+      line-height: 1.0;
+      letter-spacing: -1px;
+      margin-bottom: 1.25rem;
+      animation: fadeInUp 0.7s ease-out 0.1s both;
+    }
+
+    h1 .name-solid { color: #f5ece0; }
+
+    /* Outlined text for surname — transparent fill, faint stroke gives depth contrast */
+    h1 .name-outline {
+      color: transparent;
+      -webkit-text-stroke: 1.5px rgba(240, 220, 190, 0.75);
+      filter: drop-shadow(0 0 18px rgba(201, 79, 26, 0.7)) drop-shadow(0 0 40px rgba(201, 79, 26, 0.35));
+    }
+
+    /* Accent rule under name */
+    .name-rule {
+      display: flex;
+      gap: 0;
+      margin-bottom: 1.5rem;
+      animation: fadeInUp 0.7s ease-out 0.15s both;
+    }
+
+    .name-rule span {
+      height: 1px;
+      display: block;
+    }
+
+    /* Three segments create a tapered gradient rule: transparent → orange → amber → transparent */
+    .name-rule .r1 { width: 120px; background: linear-gradient(90deg, transparent, var(--accent)); }
+    .name-rule .r2 { width: 80px;  background: linear-gradient(90deg, var(--accent), var(--accent3)); }
+    .name-rule .r3 { width: 40px;  background: linear-gradient(90deg, var(--accent3), transparent); }
+
+    .tagline {
+      font-size: clamp(1rem, 2vw, 1.2rem);
+      color: #c9b8a8;
+      line-height: 1.6;
+      max-width: 460px;
+      margin-bottom: 2.5rem;
+      animation: fadeInUp 0.7s ease-out 0.2s both;
+      text-shadow: 0 1px 10px rgba(8,5,3,0.85), 0 2px 24px rgba(8,5,3,0.6);
+    }
+
+    .tagline em { color: #f0e6d3; font-style: normal; font-weight: 500; text-shadow: 0 1px 10px rgba(8,5,3,0.9); }
+    .tagline strong { color: var(--accent); font-weight: 600; }
+
+    /* Fake terminal block in the hero — glassmorphism card styled as a shell prompt */
+    .terminal {
+      background: rgba(8,5,3,0.6);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      margin-bottom: 2.5rem;
+      max-width: 440px;
+      animation: fadeInUp 0.7s ease-out 0.3s both;
+    }
+
+    .terminal .prompt { color: #b07a30; }
+    .terminal .cmd    { color: #f0e6d3; }
+    .terminal .out1   { color: var(--accent2); margin-left: 1rem; }
+    .terminal .out2   { color: var(--text-dim); margin-left: 1rem; }
+    .terminal .cursor {
+      display: inline-block;
+      width: 7px; height: 13px;
+      background: var(--accent3);
+      margin-left: 2px;
+      vertical-align: bottom;
+      animation: blink 1s step-end infinite;
+    }
+
+    /* ── HERO CTAs — two call-to-action buttons ── */
+    .ctas {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      animation: fadeInUp 0.7s ease-out 0.4s both;
+    }
+
+    .btn-primary {
+      position: relative;
+      padding: 0.75rem 1.5rem;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.875rem;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      transition: box-shadow 0.3s, transform 0.15s;
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 0 32px rgba(201,79,26,0.55);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:active { transform: scale(0.97); }
+
+    .btn-ghost {
+      padding: 0.75rem 1.5rem;
+      background: rgba(255,255,255,0.04);
+      backdrop-filter: blur(8px);
+      color: #f0e6d3;
+      font-weight: 600;
+      font-size: 0.875rem;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.12);
+      cursor: pointer;
+      transition: background 0.3s, border-color 0.3s, transform 0.15s;
+    }
+
+    .btn-ghost:hover {
+      background: rgba(255,255,255,0.09);
+      border-color: rgba(201,79,26,0.5);
+      transform: translateY(-1px);
+    }
+
+    .btn-ghost:active { transform: scale(0.97); }
+
+    .scroll-hint {
+      margin-top: 3rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: rgba(255,255,255,0.25);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      animation: fadeInUp 0.7s ease-out 0.6s both;
+    }
+
+    .scroll-hint .bar {
+      width: 1px;
+      height: 2rem;
+      background: rgba(255,255,255,0.2);
+      animation: scrollLine 2s ease-in-out infinite;
+    }
+
+    /* ── CONTENT WRAPPER — scrollable div that overlays the fixed video background ──
+       Semi-transparent bg lets the blurred video bleed through slightly */
+    #content {
+      position: relative;
+      z-index: 10;
+      background: rgba(8, 5, 3, 0.78);
+      backdrop-filter: blur(0px);
+    }
+
+    /* Transition strip at top of content */
+    #content::before {
+      content: '';
+      display: block;
+      height: 6rem;
+      background: linear-gradient(to bottom, transparent, rgba(8,5,3,0.9));
+      margin-top: -6rem;
+      position: relative;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* ── SECTION BASE ── */
+    section {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 6rem 3rem;
+    }
+
+    .section-eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .section-eyebrow .line { width: 2rem; height: 1px; background: var(--accent); }
+
+    .section-eyebrow span {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 4px;
+    }
+
+    .section-title {
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 700;
+      color: #f5ece0;
+      margin-bottom: 1rem;
+      line-height: 1.1;
+    }
+
+    .section-subtitle {
+      color: var(--text-dim);
+      max-width: 520px;
+      line-height: 1.7;
+      margin-bottom: 3.5rem;
+    }
+
+    /* ── ABOUT — two-column layout: bio text left, stat cards right ── */
+    .about-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: start;
+    }
+
+    .about-text p {
+      color: var(--text-dim);
+      line-height: 1.8;
+      margin-bottom: 1rem;
+    }
+
+    .about-text p em { color: #f0e6d3; font-style: normal; }
+
+    .about-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .stat-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      padding: 1.25rem;
+      transition: border-color 0.3s, background 0.3s;
+    }
+
+    .stat-card:hover {
+      border-color: rgba(201,79,26,0.3);
+      background: rgba(201,79,26,0.04);
+    }
+
+    .stat-card .num {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--accent);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .stat-card .label {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-top: 0.25rem;
+    }
+
+    /* ── SKILLS — responsive auto-fill grid of skill cards ── */
+    .skills-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+
+    .skill-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      padding: 1.5rem;
+      transition: border-color 0.3s, background 0.3s, transform 0.3s;
+    }
+
+    .skill-card:hover {
+      border-color: rgba(201,79,26,0.35);
+      background: rgba(201,79,26,0.05);
+      transform: translateY(-3px);
+    }
+
+    .skill-icon {
+      font-size: 1.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .skill-name {
+      font-weight: 600;
+      color: #f0e6d3;
+      margin-bottom: 0.4rem;
+    }
+
+    .skill-desc {
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    /* ── PROJECTS — responsive grid of project cards, min 320px wide ── */
+    .projects-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .project-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 16px;
+      padding: 1.75rem;
+      transition: border-color 0.3s, background 0.3s, transform 0.3s;
+      cursor: pointer;
+    }
+
+    .project-card:hover {
+      border-color: rgba(201,79,26,0.4);
+      background: rgba(201,79,26,0.05);
+      transform: translateY(-4px);
+    }
+
+    .project-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.65rem;
+      border-radius: 999px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      background: rgba(201,79,26,0.15);
+      color: var(--accent);
+      border: 1px solid rgba(201,79,26,0.2);
+      margin-bottom: 1rem;
+    }
+
+    .project-name {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #f5ece0;
+      margin-bottom: 0.5rem;
+    }
+
+    .project-desc {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      line-height: 1.7;
+      margin-bottom: 1.25rem;
+    }
+
+    .project-tech {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .tech-badge {
+      padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-family: 'JetBrains Mono', monospace;
+      background: rgba(255,255,255,0.05);
+      color: var(--text-dim);
+      border: 1px solid rgba(255,255,255,0.07);
+    }
+
+    /* ── LAB — compact homelab/app links grid ── */
+    .lab-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-top: 2.5rem;
+    }
+
+    .lab-card {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 12px;
+      text-decoration: none;
+      color: var(--text);
+      transition: background 0.25s, border-color 0.25s, transform 0.15s, box-shadow 0.25s;
+    }
+
+    .lab-card:hover {
+      background: rgba(201,79,26,0.07);
+      border-color: rgba(201,79,26,0.35);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 24px rgba(201,79,26,0.15);
+    }
+
+    .lab-icon {
+      width: 2.4rem;
+      height: 2.4rem;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: var(--accent);
+    }
+
+    .lab-icon svg { width: 1.1rem; height: 1.1rem; }
+
+    .lab-info { min-width: 0; }
+
+    .lab-name {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .lab-desc {
+      font-size: 0.74rem;
+      color: var(--text-dim);
+      margin-top: 0.15rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .lab-card .lab-arrow {
+      margin-left: auto;
+      color: var(--text-dim);
+      opacity: 0;
+      transition: opacity 0.2s, transform 0.2s;
+      flex-shrink: 0;
+    }
+
+    .lab-card:hover .lab-arrow {
+      opacity: 1;
+      transform: translateX(3px);
+    }
+
+    /* ── INSTAGRAM / PHOTOS — photo grid section linking to Instagram ── */
+    /* ── PHOTOS — expand-on-hover card row ── */
+    #instagram { padding: 6rem 2rem; }
+
+    /* Horizontally scrollable wrapper so cards don't wrap on small screens */
+    .expand-cards {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      margin: 3rem auto 0;
+      max-width: 1000px;
+      height: 26rem;
+    }
+
+    /* Each card collapses to a thin strip; expands on hover/active */
+    .expand-card {
+      flex-shrink: 0;
+      height: 100%;
+      width: 5rem;
+      border-radius: 1.5rem;
+      overflow: hidden;
+      cursor: pointer;
+      transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+    }
+
+    .expand-card.active { width: 24rem; }
+
+    .expand-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      pointer-events: none;
+    }
+
+    .insta-footer {
+      display: flex;
+      justify-content: center;
+      margin-top: 2rem;
+    }
+
+    .insta-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.65rem 1.4rem;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 2rem;
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: border-color 0.2s, color 0.2s;
+    }
+
+    .insta-link:hover { border-color: var(--accent); color: var(--text); }
+
+    /* Contact section — less top padding so content sits higher / more centred in viewport */
+    #contact { padding-top: 0.5rem; padding-bottom: 12rem; }
+
+    /* ── CONTACT — offset right of the robot (robot spans 20–40% of viewport) ── */
+    .contact-inner {
+      max-width: 640px;
+      margin: 0 2% 0 44%;
+      text-align: left;
+    }
+
+    .contact-inner .section-title { font-size: clamp(2.5rem, 5vw, 4rem); }
+
+    .contact-inner p {
+      color: var(--text-dim);
+      line-height: 1.7;
+      margin-bottom: 2.5rem;
+    }
+
+    .contact-email {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.85rem 2rem;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      color: #f0e6d3;
+      text-decoration: none;
+      background: rgba(255,255,255,0.03);
+      transition: all 0.3s;
+      margin-bottom: 1.5rem;
+    }
+
+    .contact-email:hover {
+      border-color: var(--accent);
+      background: rgba(201,79,26,0.08);
+      box-shadow: 0 0 24px rgba(201,79,26,0.2);
+    }
+
+/* ── SOCIAL BUTTONS — themed ghost buttons with icon + label ── */
+    .social-btns {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      gap: 0.65rem;
+      margin-top: 0;
+    }
+
+    .social-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 1.1rem;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      color: var(--text-dim);
+      font-size: 0.82rem;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 500;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.25s, border-color 0.25s, color 0.25s, transform 0.15s, box-shadow 0.25s;
+    }
+
+    .social-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+    .social-btn:hover {
+      background: rgba(201,79,26,0.1);
+      border-color: rgba(201,79,26,0.45);
+      color: var(--text);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(201,79,26,0.2);
+    }
+
+    .social-btn:active { transform: scale(0.96); }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid rgba(255,255,255,0.05);
+      padding: 2rem 3rem;
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    footer p {
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.25);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ── REVEAL — diagonal wipe (matches leaf direction: top-right → bottom-left) ──
+       Elements start as a collapsed sliver polygon; .visible expands it to full coverage.
+       JS adds .visible via IntersectionObserver when element enters the viewport. */
+    .reveal {
+      /* Leading edge is a diagonal line sweeping right-to-left */
+      clip-path: polygon(110% -10%, 110% -10%, 90% 110%, 90% 110%);
+      opacity: 0;
+      transition:
+        clip-path 0.85s cubic-bezier(0.77, 0, 0.175, 1),
+        opacity   0.15s ease;
+    }
+
+    .reveal.visible {
+      clip-path: polygon(110% -10%, -10% -10%, -30% 110%, 90% 110%);
+      opacity: 1;
+    }
+
+    /* ── REVEAL STAGGER — left-to-right inset wipe per card, with 100ms delay increments ── */
+    .reveal-stagger > * {
+      clip-path: inset(0 100% 0 0 round 14px);
+      opacity: 0;
+      transition:
+        clip-path 0.7s cubic-bezier(0.77, 0, 0.175, 1),
+        opacity   0.1s ease;
+    }
+
+    .reveal-stagger.visible > * { opacity: 1; }
+    .reveal-stagger.visible > *:nth-child(1) { clip-path: inset(0 0% 0 0 round 14px); transition-delay: 0s; }
+    .reveal-stagger.visible > *:nth-child(2) { clip-path: inset(0 0% 0 0 round 14px); transition-delay: 0.10s; }
+    .reveal-stagger.visible > *:nth-child(3) { clip-path: inset(0 0% 0 0 round 14px); transition-delay: 0.20s; }
+    .reveal-stagger.visible > *:nth-child(4) { clip-path: inset(0 0% 0 0 round 14px); transition-delay: 0.30s; }
+    .reveal-stagger.visible > *:nth-child(5) { clip-path: inset(0 0% 0 0 round 14px); transition-delay: 0.40s; }
+    .reveal-stagger.visible > *:nth-child(6) { clip-path: inset(0 0% 0 0 round 14px); transition-delay: 0.50s; }
+
+    /* ── SECTION DIVIDER ── */
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+      margin: 0 3rem;
+    }
+
+    /* ── SPOTLIGHT GLOW (ported from 21st.dev GlowCard) ──
+       Mouse position is tracked in JS and written to --x/--y/--xp/--yp on :root.
+       Each [data-glow] element renders a radial gradient at those fixed coords,
+       creating a warm spotlight that follows the cursor across all interactive cards. */
+    :root {
+      --x: 0; --y: 0; --xp: 0.5; --yp: 0.5;
+    }
+
+    [data-glow] {
+      --glow-base:   20;   /* hue start — orange-red for autumn */
+      --glow-spread: 55;   /* hue range — stays warm (orange→amber) */
+      --glow-border: 1.5;
+      --glow-size:   280;
+      --border-size: calc(var(--glow-border) * 1px);
+      --spot-size:   calc(var(--glow-size) * 1px);
+      --hue: calc(var(--glow-base) + (var(--xp, 0.5) * var(--glow-spread, 0)));
+
+      position: relative;
+      /* Body glow: large soft spot centred on cursor, fixed so it doesn't scroll */
+      background-image: radial-gradient(
+        var(--spot-size) var(--spot-size) at
+        calc(var(--x, 0) * 1px) calc(var(--y, 0) * 1px),
+        hsl(var(--hue) 100% 65% / 0.18),
+        transparent 100%
+      );
+      background-attachment: fixed;
+    }
+
+    /* Pseudo-elements paint the glowing border ring — mask-composite: intersect
+       restricts the gradient to only the border area (not the fill), giving a
+       luminous border effect without affecting the card's background. */
+    [data-glow]::before,
+    [data-glow]::after {
+      pointer-events: none;
+      content: "";
+      position: absolute;
+      inset: calc(var(--border-size) * -1);
+      border: var(--border-size) solid transparent;
+      border-radius: inherit;
+      background-attachment: fixed;
+      background-size: calc(100% + (2 * var(--border-size))) calc(100% + (2 * var(--border-size)));
+      background-repeat: no-repeat;
+      background-position: 50% 50%;
+      mask: linear-gradient(transparent, transparent), linear-gradient(white, white);
+      mask-clip: padding-box, border-box;
+      mask-composite: intersect;
+    }
+
+    /* Coloured border glow */
+    [data-glow]::before {
+      background-image: radial-gradient(
+        calc(var(--spot-size) * 0.75) calc(var(--spot-size) * 0.75) at
+        calc(var(--x, 0) * 1px) calc(var(--y, 0) * 1px),
+        hsl(var(--hue) 100% 50% / 1.0),
+        transparent 100%
+      );
+      filter: brightness(3);
+    }
+
+    /* White highlight on border */
+    [data-glow]::after {
+      background-image: radial-gradient(
+        calc(var(--spot-size) * 0.5) calc(var(--spot-size) * 0.5) at
+        calc(var(--x, 0) * 1px) calc(var(--y, 0) * 1px),
+        hsl(0 0% 100% / 0.85),
+        transparent 100%
+      );
+    }
+
+    /* ── KEYFRAMES — shared animation definitions ── */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Slow looping drift for the two ambient background glow orbs */
+    @keyframes float1 {
+      0%, 100% { transform: translate(0, 0); }
+      50%       { transform: translate(80px, 60px); }
+    }
+    @keyframes float2 {
+      0%, 100% { transform: translate(0, 0); }
+      50%       { transform: translate(-60px, -50px); }
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
+    }
+
+    @keyframes scrollLine {
+      0%, 100% { transform: scaleY(1);   opacity: 0.3; }
+      50%       { transform: scaleY(1.5); opacity: 0.7; }
+    }
+
+    /* ── STATUS BAR — fixed bottom-right ticker with rotating humorous status messages ── */
+    #status {
+      position: fixed;
+      bottom: 1rem; right: 1rem;
+      z-index: 100;
+      background: rgba(10,6,3,0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 12px;
+      padding: 0.55rem 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      opacity: 0.65;
+      transition: opacity 0.3s;
+    }
+
+    #status:hover { opacity: 1; }
+
+    #status .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #b07a30;
+      animation: pulse-glow 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+
+    /* ═══════════════════════════════════════════════════
+       MOBILE — 768px and below
+       ═══════════════════════════════════════════════════ */
+    @media (max-width: 768px) {
+
+      /* Nav — hide logo so limelight gets the full width; center nav pill */
+      nav { padding: 0.35rem 0.75rem; justify-content: center; }
+      .nav-logo { display: none; }
+
+      /* Limelight nav — icon-only, stretch to fill nav bar, items share space evenly */
+      .limelight-item span { display: none; }
+      .limelight-nav {
+        display: flex;
+        width: 100%;
+        height: 2.2rem;
+        padding: 0 0.05rem;
+        border-radius: 0.5rem;
+      }
+      .limelight-item {
+        flex: 1;
+        justify-content: center;
+        padding: 0;
+      }
+      .limelight-item svg { width: 0.85rem; height: 0.85rem; }
+
+      /* Hero — more bottom padding so CTAs clear the browser chrome bar */
+      #hero { padding: 0 1.5rem 7rem 1.5rem; }
+
+      /* Terminal widget — too wide and not touch-friendly, hide on mobile */
+      .terminal { display: none; }
+
+      /* Scroll hint — hide to save space */
+      .scroll-hint { display: none; }
+
+      /* Robot — heavy Spline asset, hide on mobile */
+      #hero-robot { display: none; }
+
+      /* Status bar — too small to read on mobile, hide it */
+      #status { display: none; }
+
+      /* BB8 toggle — move up a touch since status bar is gone */
+      #bb8-toggle-wrap { bottom: 1.25rem; right: 0.75rem; }
+
+      /* Sections — reduce padding so content breathes without huge gaps */
+      section { padding: 3.5rem 1.25rem; }
+
+      /* About — single column on mobile */
+      .about-grid { grid-template-columns: 1fr; gap: 2rem; }
+
+      /* About stats — keep 2 col grid, just tighten it */
+      .about-stats { grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
+      /* Skills — single column */
+      .skills-grid { grid-template-columns: 1fr; }
+
+      /* Projects — single column */
+      .projects-grid { grid-template-columns: 1fr; }
+
+      /* Expand cards — horizontal scroll so all cards are accessible */
+      #instagram { padding: 3.5rem 0; }
+      .expand-cards {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding: 0 1.25rem 1rem;
+        margin: 1.5rem 0 0;
+        justify-content: flex-start;
+        height: 18rem;
+      }
+      .expand-cards::-webkit-scrollbar { display: none; }
+      .expand-card { width: 5rem; flex-shrink: 0; border-radius: 1rem; }
+      .expand-card.active { width: 14rem; }
+
+      /* Contact — reset the desktop 44% left-offset, go back to centered */
+      .contact-inner {
+        max-width: 100%;
+        margin: 0 auto;
+        padding: 0 0.5rem;
+        text-align: center;
+      }
+      .contact-inner .section-eyebrow { justify-content: center; }
+      .social-btns { justify-content: center; }
+
+      /* Insta link below cards — center it */
+      .insta-link { margin: 1.5rem auto 0; }
+    }
+
+    /* Extra small phones (< 480px) */
+    @media (max-width: 480px) {
+      h1 { font-size: clamp(2.6rem, 11vw, 3.5rem); }
+      .limelight-item svg { width: 0.85rem; height: 0.85rem; }
+      .expand-card.active { width: 11rem; }
+      .about-stats { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- PROGRESS BAR — 2px top-edge bar; width driven by scroll position in JS -->
+  <div id="progress"></div>
+
+  <!-- GRID OVERLAY — subtle dot/line grid that fades in as user scrolls past the hero -->
+  <div id="grid-overlay" style="
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(201,79,26,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(201,79,26,0.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+    opacity: 0;
+  "></div>
+
+  <!-- AMBIENT GLOWS — two large blurred colour orbs that drift and fade in below the hero,
+       adding depth behind the content cards without distracting from text -->
+  <div id="glow1" style="
+    position: fixed; width: 600px; height: 600px; border-radius: 50%;
+    top: 60vh; left: -180px; z-index: 1; pointer-events: none;
+    background: #c94f1a; filter: blur(140px); opacity: 0;
+    animation: float1 20s ease-in-out infinite;
+  "></div>
+  <div id="glow2" style="
+    position: fixed; width: 600px; height: 600px; border-radius: 50%;
+    bottom: -180px; right: -180px; z-index: 1; pointer-events: none;
+    background: #9b2318; filter: blur(140px); opacity: 0;
+    animation: float2 25s ease-in-out infinite;
+  "></div>
+
+  <!-- VIDEO BG — full-screen fixed background video (autoplay/muted required for autoplay policy);
+       opacity fades to 0.45 as the user scrolls, and swaps src on BB8 toggle -->
+  <div id="video-bg">
+    <video autoplay muted loop playsinline disablepictureinpicture preload="auto" id="bg-video">
+      <source src="videos/autumn_leaves_bg.mp4" type="video/mp4" />
+    </video>
+  </div>
+
+  <!-- NAV — fixed top bar; logo left, pill nav right.
+       Each .limelight-item has data-index for the JS sliding bar to target. -->
+  <nav id="nav">
+    <div class="nav-logo">akshay<span>.</span>dhenge</div>
+    <div class="limelight-nav" id="limelight-nav">
+      <a class="limelight-item active" href="#hero" data-index="0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        Home
+      </a>
+      <a class="limelight-item" href="#about" data-index="1">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        About
+      </a>
+      <a class="limelight-item" href="#skills" data-index="2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Skills
+      </a>
+      <a class="limelight-item" href="#projects" data-index="3">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        Projects
+      </a>
+      <a class="limelight-item" href="#lab" data-index="4">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/></svg>
+        Lab
+      </a>
+      <a class="limelight-item" href="#instagram" data-index="5">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+        Photos
+      </a>
+      <a class="limelight-item" href="#contact" data-index="6">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.64 1.28h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.79a16 16 0 0 0 5.93 5.93l1.59-1.87a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+        Contact
+      </a>
+      <div class="limelight-bar" id="limelight-bar">
+        <div class="limelight-cone"></div>
+      </div>
+    </div>
+
+  </nav>
+
+  <!-- HERO — full-viewport landing area; content sits above the fixed video via z-index -->
+  <div id="hero">
+    <div class="hero-content">
+
+      <div class="eyebrow">
+        <div class="eyebrow-line"></div>
+        <span class="eyebrow-text">Engineer · Tinkerer · Weekend Traveler & Photographer</span>
+      </div>
+
+      <h1>
+        <span class="name-solid">Akshay</span><br>
+        <span class="name-outline">Dhenge</span>
+      </h1>
+
+      <div class="name-rule">
+        <span class="r1"></span>
+        <span class="r2"></span>
+        <span class="r3"></span>
+      </div>
+
+      <p class="tagline">
+        Firmware by day. <em>Everything else by night.</em><br>
+        Jack of all trades — master of <strong>some</strong>.
+      </p>
+
+      <div class="terminal">
+        <div><span class="prompt">~$</span> <span class="cmd">whoami</span></div>
+        <div class="out1">C · C++ · Python · AUTOSAR · CAN</div>
+        <div class="out2"># and whatever Claude teaches me at 2 AM</div>
+        <div><span class="prompt">~$</span><span class="cursor"></span></div>
+      </div>
+
+      <!-- CTA buttons — inline onclick is intercepted by the burst JS (capture phase)
+           to delay the scroll by 220ms so the leaf burst animation is visible first -->
+      <div class="ctas">
+        <button class="btn-primary" onclick="document.getElementById('projects').scrollIntoView({behavior:'smooth'})">
+          View My Work ↓
+        </button>
+        <button class="btn-ghost" onclick="document.getElementById('contact').scrollIntoView({behavior:'smooth'})">
+          Get In Touch
+        </button>
+      </div>
+
+      <div class="scroll-hint">
+        <div class="bar"></div>
+        Scroll
+      </div>
+
+    </div>
+  </div>
+
+  <!-- CONTENT — main scrollable wrapper; all sections live here above the fixed video layer -->
+  <div id="content">
+
+    <!-- ABOUT -->
+    <section id="about">
+      <div class="section-eyebrow reveal">
+        <div class="line"></div>
+        <span>About</span>
+      </div>
+      <h2 class="section-title reveal">A bit about me</h2>
+
+      <div class="about-grid">
+        <div class="about-text">
+          <p>
+            Automotive Systems Engineer with 9+ years across the full software lifecycle —
+            from <em>authoring requirements</em> to hands-on development to validation and testing.
+            I work where the software meets the hardware: ECUs, AUTOSAR stacks,
+            and communication buses that keep vehicles talking.
+          </p>
+          <p>
+            My domain is infotainment — <em>Navigation, Audio, Speech, HMI, Network Services, Media</em>.
+            I'm fluent in <em>CAN, LIN, and MOST</em>, comfortable across <em>Linux, QNX, and AUTOSAR</em>,
+            and write most of my day-to-day code in <em>C, C++, and Python</em>.
+            Strong on cross-functional collaboration — I've led teams and communicated
+            across every level of an organisation.
+          </p>
+          <p>
+            Outside of work I'm a chronic tinkerer — home automation, 3D printing,
+            and apparently building my own portfolio with Claude at 2 AM.
+            I believe the best engineers stay <em>genuinely curious</em> about everything adjacent to their craft.
+          </p>
+        </div>
+        <!-- Stats use .reveal-stagger so each card wipes in sequentially when visible -->
+      <div class="about-stats reveal-stagger">
+          <div class="stat-card">
+            <div class="num">9+</div>
+            <div class="label">Years in Automotive Systems</div>
+          </div>
+          <div class="stat-card">
+            <div class="num">42</div>
+            <div class="label">Home Automations Running</div>
+          </div>
+          <div class="stat-card">
+            <div class="num">0</div>
+            <div class="label">Segfaults Today (personal best)</div>
+          </div>
+          <div class="stat-card">
+            <div class="num">∞</div>
+            <div class="label">Things Still To Learn</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- SKILLS -->
+    <section id="skills">
+      <div class="section-eyebrow reveal">
+        <div class="line"></div>
+        <span>Skills</span>
+      </div>
+      <h2 class="section-title reveal">What I work with</h2>
+      <p class="section-subtitle reveal">
+        A mix of deep expertise and enthusiastic dabbling — roughly in that order.
+      </p>
+
+      <div class="skills-grid reveal-stagger">
+        <div class="skill-card">
+          <div class="skill-icon">⚙️</div>
+          <div class="skill-name">Embedded C / C++</div>
+          <div class="skill-desc">ECU firmware development, BSW integration, real-time OS task configuration, and deterministic timing across AUTOSAR and bare-metal environments.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-icon">🚗</div>
+          <div class="skill-name">AUTOSAR</div>
+          <div class="skill-desc">Classic AUTOSAR BSW components, CDD authoring, RTE integration, OS task configuration with EB Tresos. Brake and EPS ECU platforms.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-icon">🔬</div>
+          <div class="skill-name">UDS / OBD Diagnostics</div>
+          <div class="skill-desc">ISO 14229 UDS service handlers within AUTOSAR DCM/DEM stack. Fault code management, DID authoring via CANdela, OBD field diagnostics.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-icon">🔌</div>
+          <div class="skill-name">Communication Protocols</div>
+          <div class="skill-desc">CAN, LIN, SPI, I2C, UART, RS232, Bluetooth, TCP/IP — from signal-level debugging to full network integration and calibration.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-icon">🛠️</div>
+          <div class="skill-name">Vector Toolchain</div>
+          <div class="skill-desc">CANoe, CANalyzer, CANape for communication validation and calibration. CANdela for diagnostic DB authoring. Lauterbach Trace32 for low-level debugging.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-icon">📊</div>
+          <div class="skill-name">MATLAB / Simulink</div>
+          <div class="skill-desc">Model-based development — integrating Simulink components into the AUTOSAR RTE, bridging MIL and SIL validation for EPS control algorithms.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-icon">🐍</div>
+          <div class="skill-name">Python & Test Automation</div>
+          <div class="skill-desc">Regression and functional test scripts, CAPL automation, ECU log parsing, and the one-off scripts that somehow end up in production tooling.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-icon">🏠</div>
+          <div class="skill-name">Home Automation</div>
+          <div class="skill-desc">Home Assistant, custom integrations, MQTT, Node-RED, and an ever-growing list of connected devices that Antika tolerates.</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- PROJECTS -->
+    <section id="projects">
+      <div class="section-eyebrow reveal">
+        <div class="line"></div>
+        <span>Projects</span>
+      </div>
+      <h2 class="section-title reveal">Things I've built</h2>
+      <p class="section-subtitle reveal">
+        Side projects, weekend experiments, and the occasional thing that actually works first try.
+      </p>
+
+      <div class="projects-grid reveal-stagger">
+        <div class="project-card">
+          <div class="project-tag">MCP · Home Automation</div>
+          <div class="project-name">TrueNAS MCP Server</div>
+          <div class="project-desc">
+            A Model Context Protocol server that lets Claude query and control
+            my TrueNAS SCALE NAS — pools, datasets, apps, alerts and more.
+          </div>
+          <div class="project-tech">
+            <span class="tech-badge">Python</span>
+            <span class="tech-badge">WebSocket</span>
+            <span class="tech-badge">MCP</span>
+          </div>
+        </div>
+        <div class="project-card">
+          <div class="project-tag">AI · Blender</div>
+          <div class="project-name">Blender MCP</div>
+          <div class="project-desc">
+            Custom MCP addon + server bridging Claude Code directly to Blender
+            over TCP — generate, modify, and render 3D scenes via natural language.
+          </div>
+          <div class="project-tech">
+            <span class="tech-badge">Python</span>
+            <span class="tech-badge">Blender API</span>
+            <span class="tech-badge">TCP</span>
+          </div>
+        </div>
+        <div class="project-card">
+          <div class="project-tag">Android · Hobby</div>
+          <div class="project-name">Lego Mosaic Creator</div>
+          <div class="project-desc">
+            Android app that converts any photo into a LEGO mosaic build plan —
+            part list, color mapping, and a step-by-step assembly guide.
+          </div>
+          <div class="project-tech">
+            <span class="tech-badge">Kotlin</span>
+            <span class="tech-badge">Android</span>
+            <span class="tech-badge">Image Processing</span>
+          </div>
+          <a href="https://mosaic.akshaydhenge.uk" target="_blank" rel="noopener"
+             style="display:inline-flex;align-items:center;gap:0.35rem;margin-top:1rem;font-size:0.78rem;color:var(--accent3);text-decoration:none;opacity:0.85;transition:opacity 0.2s"
+             onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.85'">
+            Visit site <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- LAB -->
+    <section id="lab">
+      <div class="section-eyebrow reveal">
+        <div class="line"></div>
+        <span>Lab</span>
+      </div>
+      <h2 class="section-title reveal">Things running<br><span style="color:var(--text-dim);font-weight:400">in my homelab.</span></h2>
+      <p class="section-subtitle reveal">A few services I run at home — some useful to others, all behind a login.</p>
+
+      <div class="lab-grid reveal-stagger">
+
+        <a class="lab-card" href="https://mosaic.akshaydhenge.uk" target="_blank" rel="noopener">
+          <div class="lab-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          </div>
+          <div class="lab-info">
+            <div class="lab-name">Lego Mosaic Creator</div>
+            <div class="lab-desc">Photo → LEGO build plan</div>
+          </div>
+          <svg class="lab-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+
+        <a class="lab-card" href="https://ha.akshaydhenge.uk" target="_blank" rel="noopener">
+          <div class="lab-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
+          </div>
+          <div class="lab-info">
+            <div class="lab-name">Home Assistant</div>
+            <div class="lab-desc">Home automation dashboard</div>
+          </div>
+          <svg class="lab-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+
+        <a class="lab-card" href="https://jellyfin.akshaydhenge.uk" target="_blank" rel="noopener">
+          <div class="lab-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/></svg>
+          </div>
+          <div class="lab-info">
+            <div class="lab-name">Jellyfin</div>
+            <div class="lab-desc">Personal media server</div>
+          </div>
+          <svg class="lab-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+
+        <a class="lab-card" href="https://seerr.akshaydhenge.uk" target="_blank" rel="noopener">
+          <div class="lab-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg>
+          </div>
+          <div class="lab-info">
+            <div class="lab-name">Jellyseerr</div>
+            <div class="lab-desc">Media discovery & requests</div>
+          </div>
+          <svg class="lab-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- INSTAGRAM -->
+    <section id="instagram">
+      <div class="section-eyebrow reveal">
+        <div class="line"></div>
+        <span class="eyebrow-label">05 / Shots</span>
+        <div class="line"></div>
+      </div>
+      <h2 class="section-title reveal" style="text-align:center">Through the<br><span style="color:var(--text-dim);font-weight:400">viewfinder.</span></h2>
+
+      <!-- Expand-on-hover card row — middle card active by default -->
+      <div class="expand-cards" id="expand-cards">
+        <div class="expand-card" data-card="0">
+          <img src="pics/1.jpg" alt="Photo 1" loading="lazy" />
+        </div>
+        <div class="expand-card" data-card="1">
+          <img src="pics/2.jpg" alt="Photo 2" loading="lazy" />
+        </div>
+        <div class="expand-card" data-card="2">
+          <img src="pics/3.jpg" alt="Photo 3" loading="lazy" />
+        </div>
+        <div class="expand-card active" data-card="3">
+          <img src="pics/4.jpg" alt="Photo 4" loading="lazy" />
+        </div>
+        <div class="expand-card" data-card="4">
+          <img src="pics/5.jpg" alt="Photo 5" loading="lazy" />
+        </div>
+        <div class="expand-card" data-card="5">
+          <img src="pics/6.jpg" alt="Photo 6" loading="lazy" />
+        </div>
+        <div class="expand-card" data-card="6">
+          <!-- Video card — autoplay muted loop like the background video -->
+          <video src="pics/7.mp4" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;"></video>
+        </div>
+      </div>
+
+      <div class="insta-footer reveal">
+        <a class="insta-link" href="https://instagram.com/akshaydhenge" target="_blank" rel="noopener">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+          @akshaydhenge
+        </a>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- CONTACT -->
+    <section id="contact">
+      <div class="contact-inner">
+        <div class="section-eyebrow reveal" style="justify-content:flex-start">
+          <div class="line"></div>
+          <span>Contact</span>
+        </div>
+        <h2 class="section-title reveal">Let's talk</h2>
+        <p class="reveal">
+          Whether it's a job opportunity, a collab, or you just want to geek out
+          about CAN bus diagnostics — I'm around.
+        </p>
+        <a href="mailto:hi@akshaydhenge.uk" class="contact-email reveal">
+          hi@akshaydhenge.uk ↗
+        </a>
+        <!-- Social buttons — each triggers leaf burst on click -->
+        <div class="social-btns">
+
+          <a class="social-btn" href="Resume_Akshay.pdf" download="Akshay_Dhenge_Resume.pdf">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Resume
+          </a>
+
+          <a class="social-btn" href="https://github.com/akdhenge" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            GitHub
+          </a>
+
+          <a class="social-btn" href="https://instagram.com/akshaydhenge" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+            Instagram
+          </a>
+
+          <a class="social-btn" href="https://www.youtube.com/@akshaydhenge3832" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+            YouTube
+          </a>
+
+          <a class="social-btn" href="https://www.facebook.com/adhenge/" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+            Facebook
+          </a>
+
+          <a class="social-btn" href="tel:+19802678208">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.62 3.38 2 2 0 0 1 3.62 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.79a16 16 0 0 0 5.93 5.93l1.59-1.59a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            Call
+          </a>
+
+          <a class="social-btn" href="mailto:akshay.dhenge@gmail.com">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+            Email
+          </a>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="reveal">
+      <p>© 2025 Akshay Dhenge</p>
+      <p>Built with React + caffeine — for Pillow, always</p>
+    </footer>
+
+  </div>
+
+  <!-- 3D ROBOT — placed at body level (not inside #hero) so its z-index:500 is not
+       clipped by the hero's stacking context. The Spline branding watermark is
+       covered by the absolutely-positioned bg-coloured div below the viewer. -->
+  <div id="hero-robot">
+    <spline-viewer
+      url="https://prod.spline.design/HC62j4SVxrUfbgkS/scene.splinecode"
+      loading-anim-type="none"
+      hide-ui
+    ></spline-viewer>
+    <div style="position:absolute;bottom:28px;right:0;width:160px;height:40px;background:var(--bg);opacity:0.95;z-index:10;pointer-events:none;border-radius:4px 0 0 0;"></div>
+  </div>
+
+  <!-- LEAVES CANVAS — full-screen fixed overlay; pointer-events:none lets all clicks pass through.
+       The canvas JS draws falling maple leaves with physics, depth layers, and cursor repulsion. -->
+  <canvas id="leaves-canvas" style="
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    pointer-events: none;
+    width: 100%;
+    height: 100%;
+  "></canvas>
+
+  <!-- BB8 day/night toggle — pure CSS droid widget; checkbox state drives day/night
+       video swap in JS. Stars, clouds, suns, and shadows are all CSS pseudo-elements. -->
+  <label class="bb8-toggle" id="bb8-toggle-wrap" title="Toggle day / night">
+    <input class="bb8-toggle__checkbox" type="checkbox" id="bb8-checkbox" />
+    <div class="bb8-toggle__container">
+      <div class="bb8-toggle__scenery">
+        <div class="bb8-toggle__star"></div>
+        <div class="bb8-toggle__star"></div>
+        <div class="bb8-toggle__star"></div>
+        <div class="bb8-toggle__star"></div>
+        <div class="bb8-toggle__star"></div>
+        <div class="bb8-toggle__star"></div>
+        <div class="bb8-toggle__star"></div>
+        <div class="tatto-1"></div>
+        <div class="tatto-2"></div>
+        <div class="gomrassen"></div>
+        <div class="hermes"></div>
+        <div class="chenini"></div>
+        <div class="bb8-toggle__cloud"></div>
+        <div class="bb8-toggle__cloud"></div>
+        <div class="bb8-toggle__cloud"></div>
+      </div>
+      <div class="bb8">
+        <div class="bb8__head-container">
+          <div class="bb8__antenna"></div>
+          <div class="bb8__antenna"></div>
+          <div class="bb8__head"></div>
+        </div>
+        <div class="bb8__body"></div>
+      </div>
+      <div class="artificial__hidden">
+        <div class="bb8__shadow"></div>
+      </div>
+    </div>
+  </label>
+
+  <!-- STATUS BAR — bottom-right ticker; text rotates through STATUSES array every 5s -->
+  <div id="status">
+    <div class="dot"></div>
+    <span id="status-text">All systems operational</span>
+  </div>
+
+  <script>
+    // ── STATUS TICKER — cycles through witty status messages every 5s with a fade transition ──
+    const STATUSES = [
+      "All systems operational",
+      "CAN bus: 0 errors | 0 warnings",
+      "Home Assistant: 42 automations running",
+      "Coffee levels: critical — refill needed",
+      "Ender 3 Pro: bed level looks good… for now",
+      "Debugging: have you tried toggling the GPIO?",
+      "Currently asking Claude how CSS works",
+      "Segfault count today: 0 (personal best)",
+      "Embedded engineer writing HTML. What a time.",
+      "Pillow approval rating: 10/10 — verified",
+      "Nature photography mode: OFF | Antika mode: ON",
+    ]
+
+    // Fade out → swap text → fade in; 300ms gap matches the opacity transition
+    let idx = 0
+    const statusEl = document.getElementById('status-text')
+    setInterval(() => {
+      statusEl.style.opacity = 0
+      setTimeout(() => {
+        idx = (idx + 1) % STATUSES.length
+        statusEl.textContent = STATUSES[idx]
+        statusEl.style.transition = 'opacity 0.3s'
+        statusEl.style.opacity = 1
+      }, 300)
+    }, 5000)
+
+    // ── ROBOT: show only on contact section ──
+    ;(function () {
+      const robot   = document.getElementById('hero-robot')
+      const contact = document.getElementById('contact')
+      if (!robot || !contact) return
+      const obs = new IntersectionObserver((entries) => {
+        const visible = entries[0].isIntersecting
+        robot.style.opacity = visible ? '1' : '0'
+        robot.style.pointerEvents = visible ? 'all' : 'none'
+      }, { rootMargin: '0px 0px -30% 0px', threshold: 0 })
+      obs.observe(contact)
+    })()
+
+    // ── BB8 THEME TOGGLE — swaps the background video src on checkbox change.
+    // Fade out → swap src → reload → fade back in once canplay fires (once: true prevents leaks).
+    ;(function () {
+      const cb  = document.getElementById('bb8-checkbox')
+      const vid = document.getElementById('bg-video')
+      if (!cb || !vid) return
+      cb.addEventListener('change', () => {
+        isNight = cb.checked
+        const src = cb.checked
+          ? 'videos/space_bg.mp4'       // night
+          : 'videos/autumn_leaves_bg.mp4' // day
+        vid.style.opacity = '0'
+        setTimeout(() => {
+          vid.src = src
+          vid.load()
+          vid.play().catch(() => {})
+          vid.addEventListener('canplay', () => { vid.style.opacity = '1' }, { once: true })
+        }, 400)
+      })
+    })()
+
+    // ── LIMELIGHT NAV — slides the accent bar to the active item.
+    // .ready class is added after first paint so the initial position snap has no transition.
+    ;(function () {
+      const items = Array.from(document.querySelectorAll('.limelight-item'))
+      const bar   = document.getElementById('limelight-bar')
+
+      // Centre the bar under item at given index; also toggles .active class
+      function moveTo(index) {
+        const el = items[index]
+        if (!el || !bar) return
+        items.forEach((it, i) => it.classList.toggle('active', i === index))
+        const newLeft = el.offsetLeft + el.offsetWidth / 2 - bar.offsetWidth / 2
+        bar.style.left = newLeft + 'px'
+      }
+
+      // Init position after paint
+      setTimeout(() => {
+        moveTo(0)
+        setTimeout(() => bar.classList.add('ready'), 50)
+      }, 0)
+
+      items.forEach((el, i) => {
+        el.addEventListener('click', () => moveTo(i))
+      })
+
+      // Auto-highlight on scroll: whichever section's rect straddles the viewport midpoint wins
+      const sections = ['hero','about','skills','projects','lab','instagram','contact']
+      window.addEventListener('scroll', () => {
+        const mid = window.innerHeight * 0.5
+        let active = 0
+        sections.forEach((id, i) => {
+          const sec = document.getElementById(id)
+          if (!sec) return
+          const rect = sec.getBoundingClientRect()
+          if (rect.top <= mid && rect.bottom > mid) active = i
+        })
+        moveTo(active)
+      }, { passive: true })
+    })()
+
+    // ── SCROLL-DRIVEN EFFECTS — single passive listener drives progress bar, nav glass,
+    //    video fade, hero parallax, grid overlay, and ambient glow opacity ──
+    const nav         = document.getElementById('nav')
+    const videoBg     = document.getElementById('video-bg')
+    const progress    = document.getElementById('progress')
+    const gridOverlay = document.getElementById('grid-overlay')
+    const glow1       = document.getElementById('glow1')
+    const glow2       = document.getElementById('glow2')
+    const heroContent = document.querySelector('.hero-content')
+    const heroH       = document.getElementById('hero').offsetHeight
+
+    window.addEventListener('scroll', () => {
+      const sy  = window.scrollY
+      const max = document.documentElement.scrollHeight - window.innerHeight
+
+      // Progress bar
+      progress.style.width = (sy / max * 100) + '%'
+
+      // Nav frosted glass
+      nav.classList.toggle('scrolled', sy > 60)
+
+      // Video fade as you scroll into content
+      const fade = Math.max(0.45, 1 - (sy / heroH) * 1.1)
+      videoBg.style.opacity = fade
+
+      // Hero content parallax — moves up at 35% of scroll speed
+      heroContent.style.transform = `translateY(${sy * 0.35}px)`
+
+      // Grid fades in after hero
+      gridOverlay.style.opacity = Math.min(1, sy / (heroH * 1.2))
+
+      // Ambient glows appear below hero, max opacity 0.10
+      const glowT = Math.max(0, (sy - heroH) / 600)
+      glow1.style.opacity = Math.min(0.10, glowT * 0.10)
+      glow2.style.opacity = Math.min(0.10, glowT * 0.10)
+
+    }, { passive: true })
+
+    // ── INTERSECTION OBSERVER — adds .visible to .reveal/.reveal-stagger when 12% in view.
+    // unobserve after trigger so the animation only fires once (not on scroll back up).
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible')
+          observer.unobserve(e.target)
+        }
+      })
+    }, { threshold: 0.12 })
+
+    document.querySelectorAll('.reveal, .reveal-stagger').forEach(el => observer.observe(el))
+
+    // Prevent flash of unstyled video: start transparent, fade in when browser can play
+    const bgVideo = document.getElementById('bg-video')
+    bgVideo.style.opacity = 0
+    bgVideo.style.transition = 'opacity 1.2s ease'
+    bgVideo.addEventListener('canplay', () => { bgVideo.style.opacity = 1 })
+
+    // ── EXPAND-ON-HOVER PHOTO CARDS ──
+    // Hovering a card expands it to full width; others collapse to thin strips
+    ;(function () {
+      const cards = Array.from(document.querySelectorAll('.expand-card'))
+      cards.forEach(card => {
+        card.addEventListener('mouseenter', () => {
+          cards.forEach(c => c.classList.remove('active'))
+          card.classList.add('active')
+        })
+      })
+    })()
+  </script>
+
+  <script>
+    // ── FALLING MAPLE LEAVES — canvas particle system with 7 depth layers,
+    //    cursor repulsion, solid-element collision, and click burst effects ──
+    const canvas = document.getElementById('leaves-canvas')
+    const ctx    = canvas.getContext('2d')
+
+    // Keep canvas resolution in sync with viewport; called on load and resize
+    function resize() {
+      canvas.width  = window.innerWidth
+      canvas.height = window.innerHeight
+    }
+    resize()
+    window.addEventListener('resize', resize)
+
+    // Realistic Japanese maple (momiji) — 5 pointed lobes, deep sinuses, veins
+    // s = half-height. Leaf fits roughly within (-s, -s) to (s, s).
+    function traceMapleLeaf(ctx, s) {
+      ctx.beginPath()
+      ctx.moveTo(0, s * 0.88)
+
+      // ── lower-right lobe ──
+      ctx.bezierCurveTo( s*0.05,  s*0.65,  s*0.50,  s*0.60,  s*0.80,  s*0.30)
+      ctx.bezierCurveTo( s*1.00,  s*0.10,  s*0.95, -s*0.08,  s*0.78,  s*0.04)
+      ctx.bezierCurveTo( s*0.58,  s*0.12,  s*0.32,  s*0.08,  s*0.22, -s*0.02)
+
+      // ── upper-right lobe ──
+      ctx.bezierCurveTo( s*0.42, -s*0.22,  s*0.72, -s*0.30,  s*0.68, -s*0.62)
+      ctx.bezierCurveTo( s*0.64, -s*0.88,  s*0.42, -s*0.82,  s*0.30, -s*0.60)
+      ctx.bezierCurveTo( s*0.20, -s*0.48,  s*0.14, -s*0.44,  s*0.09, -s*0.38)
+
+      // ── top (center) lobe ──
+      ctx.bezierCurveTo( s*0.20, -s*0.62,  s*0.10, -s*1.00,  0,      -s*1.00)
+      ctx.bezierCurveTo(-s*0.10, -s*1.00, -s*0.20, -s*0.62, -s*0.09, -s*0.38)
+
+      // ── upper-left lobe (mirror) ──
+      ctx.bezierCurveTo(-s*0.14, -s*0.44, -s*0.20, -s*0.48, -s*0.30, -s*0.60)
+      ctx.bezierCurveTo(-s*0.42, -s*0.82, -s*0.64, -s*0.88, -s*0.68, -s*0.62)
+      ctx.bezierCurveTo(-s*0.72, -s*0.30, -s*0.42, -s*0.22, -s*0.22, -s*0.02)
+
+      // ── lower-left lobe (mirror) ──
+      ctx.bezierCurveTo(-s*0.32,  s*0.08, -s*0.58,  s*0.12, -s*0.78,  s*0.04)
+      ctx.bezierCurveTo(-s*0.95, -s*0.08, -s*1.00,  s*0.10, -s*0.80,  s*0.30)
+      ctx.bezierCurveTo(-s*0.50,  s*0.60, -s*0.05,  s*0.65,  0,        s*0.88)
+      ctx.closePath()
+    }
+
+    // Draws a central midrib plus 4 branch veins scaled to leaf half-size s
+    function drawVeins(ctx, s, alpha) {
+      ctx.save()
+      ctx.globalAlpha = alpha * 0.28
+      ctx.strokeStyle = '#000'
+      ctx.lineCap = 'round'
+
+      ctx.lineWidth = s * 0.06
+      ctx.beginPath(); ctx.moveTo(0, s*0.75); ctx.lineTo(0, -s*0.88); ctx.stroke()
+
+      ctx.lineWidth = s * 0.035
+      const veins = [
+        [0, s*0.1,   s*0.65, -s*0.52],
+        [0, s*0.1,  -s*0.65, -s*0.52],
+        [0, s*0.38,  s*0.78,  s*0.18],
+        [0, s*0.38, -s*0.78,  s*0.18],
+      ]
+      veins.forEach(([x1,y1,x2,y2]) => {
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke()
+      })
+      ctx.restore()
+    }
+
+    // ── NIGHT MODE FLAG — toggled by BB8 checkbox; controls which particle system runs ──
+    let isNight = false
+
+    // ── STARDUST SYSTEM — floating particles + shooting stars for night / space mode ──
+    const STAR_COLORS = ['#e8b4ff','#c084fc','#f0abff','#a78bfa','#f9a8d4','#e879f9','#d8b4fe','#fbcfe8','#c4b5fd','#f472b6']
+
+    // Vanishing point — slightly right of centre, upper-mid area
+    // Particles drift toward top-right AND converge toward this point as they shrink (going inward)
+    const VP = { x: canvas.width * 0.62, y: canvas.height * 0.38 }
+
+    function spawnStarPos(scatter) {
+      if (scatter) {
+        // On init: spread across whole screen at random depth
+        return { x: Math.random() * canvas.width, y: Math.random() * canvas.height, scale: 0.05 + Math.random() * 0.95 }
+      }
+      // Respawn: enter from bottom-left quadrant (opposite of drift direction)
+      const edge = Math.random()
+      if (edge < 0.5) {
+        // Bottom edge
+        return { x: Math.random() * canvas.width * 0.7, y: canvas.height + 6, scale: 1.0 }
+      } else {
+        // Left edge
+        return { x: -6, y: canvas.height * 0.3 + Math.random() * canvas.height * 0.7, scale: 1.0 }
+      }
+    }
+
+    function makeStar(scatter = false) {
+      const big = Math.random() < 0.08
+      const pos = spawnStarPos(scatter)
+      return {
+        x:            pos.x,
+        y:            pos.y,
+        size:         big ? (1.5 + Math.random() * 2.5) : (0.4 + Math.random() * 1.4),
+        baseOpacity:  0.2 + Math.random() * 0.75,
+        twinklePhase: Math.random() * Math.PI * 2,
+        twinkleFreq:  0.012 + Math.random() * 0.04,
+        // Drift: rightward + upward bias (bottom-left → top-right)
+        vx:           0.14 + (Math.random() - 0.5) * 0.28,
+        vy:          -0.14 + (Math.random() - 0.5) * 0.28,
+        // Z axis: scale shrinks as particle moves inward (away from viewer)
+        scale:        pos.scale,
+        dscale:       0.00035 + Math.random() * 0.00055,
+        color:        STAR_COLORS[Math.floor(Math.random() * STAR_COLORS.length)],
+        glow:         big,
+        dvx: 0, dvy: 0,
+      }
+    }
+
+    const stars = []
+    for (let i = 0; i < 400; i++) stars.push(makeStar(true))
+
+    // Shooting stars — rare streaks across the screen
+    const shoots = []
+    function maybeSpawnShoot() {
+      if (Math.random() < 0.004 && shoots.length < 5) {
+        shoots.push({
+          // Spawn from bottom-left area, streak toward top-right
+          x:       canvas.width  * Math.random() * 0.5,
+          y:       canvas.height * (0.5 + Math.random() * 0.5),
+          vx:       9 + Math.random() * 14,
+          vy:      -(4 + Math.random() * 8),
+          length:  70 + Math.random() * 130,
+          life:    1.0,
+          decay:   0.012 + Math.random() * 0.014,
+        })
+      }
+    }
+
+    function drawStardust() {
+      maybeSpawnShoot()
+
+      // Draw stars
+      stars.forEach(star => {
+        // Shrink scale — simulates moving inward (away from viewer)
+        star.scale -= star.dscale
+        // Reset when too small (vanished into distance) or drifted off screen
+        if (star.scale <= 0.03 || star.x > canvas.width + 20 || star.y < -20) {
+          const fresh = makeStar(false)
+          Object.assign(star, fresh)
+          return
+        }
+
+        // Cursor repulsion — radius and strength scale with particle size (bigger = closer = more reactive)
+        const dx = star.x - mouse.x, dy = star.y - mouse.y
+        const dist = Math.sqrt(dx*dx + dy*dy)
+        const repelR = 80 + star.size * 28 * star.scale  // larger/closer stars have bigger bubble
+        if (dist < repelR && dist > 0) {
+          const cursorSpd = Math.min(4, Math.sqrt(mouse.vx*mouse.vx + mouse.vy*mouse.vy) * 0.15 + 1)
+          const strength  = 0.6 + star.size * 0.5 * star.scale  // stronger for bigger/closer
+          const force     = (1 - dist / repelR) * strength * cursorSpd
+          star.dvx += (dx / dist) * force
+          star.dvy += (dy / dist) * force
+        }
+        // Solid element collision — same closest-point-on-rect repulsion as leaves
+        const starR = star.size * star.scale * 0.45 + 5
+        for (const rect of solidRects) {
+          if (star.x < rect.left - starR * 3 || star.x > rect.right  + starR * 3 ||
+              star.y < rect.top  - starR * 3 || star.y > rect.bottom + starR * 3) continue
+          const cx  = Math.max(rect.left, Math.min(star.x, rect.right))
+          const cy  = Math.max(rect.top,  Math.min(star.y, rect.bottom))
+          const ddx = star.x - cx, ddy = star.y - cy
+          const d   = Math.sqrt(ddx*ddx + ddy*ddy)
+          if (d < starR && d > 0) {
+            const force = (1 - d / starR) * 2.2
+            star.dvx += (ddx / d) * force
+            star.dvy += (ddy / d) * force
+          } else if (d === 0) {
+            star.dvx -= star.vx
+            star.dvy -= star.vy
+          }
+        }
+
+        star.dvx *= 0.91; star.dvy *= 0.91
+
+        // Perspective convergence toward vanishing point — stronger when smaller (further away)
+        const pullStr = (1 - star.scale) * 0.0018
+        star.x += star.vx + star.dvx + (VP.x - star.x) * pullStr
+        star.y += star.vy + star.dvy + (VP.y - star.y) * pullStr
+        star.twinklePhase += star.twinkleFreq
+
+        const twinkle = 0.45 + 0.55 * Math.sin(star.twinklePhase)
+        // Opacity and size both scale with z — fade and shrink as going inward
+        const opacity   = star.baseOpacity * (0.35 + 0.65 * twinkle) * star.scale
+        const drawSize  = star.size * star.scale
+
+        ctx.save()
+        if (star.glow && drawSize > 0.8) {
+          const glowR = drawSize * 5
+          const g = ctx.createRadialGradient(star.x, star.y, 0, star.x, star.y, glowR)
+          g.addColorStop(0,   star.color)
+          g.addColorStop(0.3, star.color + 'aa')
+          g.addColorStop(1,   'transparent')
+          ctx.globalAlpha = opacity * 0.7
+          ctx.fillStyle = g
+          ctx.beginPath()
+          ctx.arc(star.x, star.y, glowR, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        ctx.globalAlpha = opacity
+        ctx.fillStyle = star.color
+        ctx.beginPath()
+        ctx.arc(star.x, star.y, Math.max(0.2, drawSize), 0, Math.PI * 2)
+        ctx.fill()
+        ctx.restore()
+      })
+
+      // Draw shooting stars
+      for (let i = shoots.length - 1; i >= 0; i--) {
+        const s = shoots[i]
+        s.x += s.vx; s.y += s.vy
+        s.life -= s.decay
+        if (s.life <= 0 || s.x > canvas.width + s.length || s.y < -s.length) { shoots.splice(i, 1); continue }
+
+        // Tail extends behind the head in the opposite direction of travel
+        const spd = Math.sqrt(s.vx*s.vx + s.vy*s.vy)
+        const tailX = s.x - (s.vx / spd) * s.length
+        const tailY = s.y - (s.vy / spd) * s.length
+        const grad = ctx.createLinearGradient(s.x, s.y, tailX, tailY)
+        grad.addColorStop(0,   `rgba(255,220,255,${(s.life * 0.9).toFixed(2)})`)
+        grad.addColorStop(0.2, `rgba(200,150,255,${(s.life * 0.5).toFixed(2)})`)
+        grad.addColorStop(1,   'rgba(180,100,255,0)')
+
+        ctx.save()
+        ctx.strokeStyle = grad
+        ctx.lineWidth = 1.5
+        ctx.lineCap = 'round'
+        ctx.beginPath()
+        ctx.moveTo(s.x, s.y)
+        ctx.lineTo(tailX, tailY)
+        ctx.stroke()
+        ctx.restore()
+      }
+
+      // Draw star burst particles
+      for (let i = starBursts.length - 1; i >= 0; i--) {
+        const b = starBursts[i]
+        b.x  += b.vx; b.y += b.vy
+        b.vy += 0.04  // very slight gravity
+        b.vx *= 0.98; b.vy *= 0.98
+        b.life -= b.decay
+        if (b.life <= 0) { starBursts.splice(i, 1); continue }
+
+        const alpha = Math.min(1, b.life * 1.4)
+        ctx.save()
+        if (b.glow) {
+          const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.size * 4)
+          g.addColorStop(0, b.color)
+          g.addColorStop(1, 'transparent')
+          ctx.globalAlpha = alpha * 0.6
+          ctx.fillStyle = g
+          ctx.beginPath()
+          ctx.arc(b.x, b.y, b.size * 4, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        ctx.globalAlpha = alpha
+        ctx.fillStyle = b.color
+        ctx.beginPath()
+        ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.restore()
+      }
+    }
+
+    // Leaf color palette — warm autumn
+    const COLORS = [
+      '#c0392b', // deep red
+      '#e74c3c', // bright red
+      '#e67e22', // orange
+      '#f39c12', // amber
+      '#d35400', // burnt orange
+      '#922b21', // dark crimson
+      '#a93226', // muted red
+      '#ca6f1e', // golden orange
+    ]
+
+    // Three depth layers for parallax 3D feel
+    //  layer 0 = far   : small, slow, very transparent
+    //  layer 1 = mid   : medium
+    //  layer 2 = near  : large, fast, more opaque
+    const LAYERS = [
+      { count: 14, sizeMin:  4, sizeMax:  8, speedMin: 0.25, speedMax: 0.55, opacityMin: 0.12, opacityMax: 0.25, swayAmp: 0.2 }, // 0 tiny
+      { count: 12, sizeMin:  9, sizeMax: 14, speedMin: 0.40, speedMax: 0.85, opacityMin: 0.20, opacityMax: 0.38, swayAmp: 0.35 }, // 1 small
+      { count: 10, sizeMin: 15, sizeMax: 21, speedMin: 0.70, speedMax: 1.30, opacityMin: 0.35, opacityMax: 0.55, swayAmp: 0.55 }, // 2 small-mid
+      { count:  9, sizeMin: 22, sizeMax: 30, speedMin: 1.00, speedMax: 1.70, opacityMin: 0.45, opacityMax: 0.68, swayAmp: 0.75 }, // 3 mid
+      { count:  7, sizeMin: 31, sizeMax: 42, speedMin: 1.40, speedMax: 2.10, opacityMin: 0.55, opacityMax: 0.78, swayAmp: 0.95 }, // 4 mid-large
+      { count:  5, sizeMin: 43, sizeMax: 56, speedMin: 1.80, speedMax: 2.60, opacityMin: 0.62, opacityMax: 0.85, swayAmp: 1.20 }, // 5 large
+      { count:  4, sizeMin: 57, sizeMax: 75, speedMin: 2.20, speedMax: 3.20, opacityMin: 0.65, opacityMax: 0.90, swayAmp: 1.50 }, // 6 huge
+    ]
+
+    function rand(min, max) { return min + Math.random() * (max - min) }
+
+    // Spawn along the top-right entry edge:
+    // top edge (x from 30%→right+overshoot) + right edge (y from top→40%)
+    function spawnPos(scatter = false) {
+      if (scatter) {
+        // On load: scatter diagonally across the whole screen
+        const t = Math.random()
+        return {
+          x: canvas.width  * (0.3 + t * 0.9),
+          y: canvas.height * (t * 0.85),
+        }
+      }
+      // Normal spawn: pick a point on the top-right entry border
+      if (Math.random() < 0.6) {
+        // Top edge, right 70%
+        return { x: rand(canvas.width * 0.3, canvas.width + 60), y: rand(-60, -10) }
+      } else {
+        // Right edge, top 50%
+        return { x: rand(canvas.width + 10, canvas.width + 60), y: rand(-60, canvas.height * 0.5) }
+      }
+    }
+
+    // Creates a new leaf object with randomised properties for the given depth layer
+    function makeLeaf(layer, scatter = false) {
+      const l   = LAYERS[layer]
+      const pos = spawnPos(scatter)
+      // Direction: top-right → bottom-left, ~40° from vertical
+      // vx = -speed * sin(40°) ≈ -0.64, vy = speed * cos(40°) ≈ 0.77
+      const spd = rand(l.speedMin, l.speedMax)
+      return {
+        layer,
+        x:          pos.x,
+        y:          pos.y,
+        size:       rand(l.sizeMin, l.sizeMax),
+        vx:         -spd * 0.64,
+        vy:          spd * 0.77,
+        rot:        rand(0, Math.PI * 2),
+        rotSpeed:   rand(-0.025, 0.025),
+        swayOffset: rand(0, Math.PI * 2),
+        swayAmp:    rand(l.swayAmp * 0.5, l.swayAmp * 1.5),
+        swayFreq:   rand(0.003, 0.008),
+        opacity:    rand(l.opacityMin, l.opacityMax),
+        color:      COLORS[Math.floor(Math.random() * COLORS.length)],
+        // Grow effect: only ~3 leaves from the near layer, starts tiny and swells toward bottom
+        growEffect: layer >= 5,
+        dvx: 0,  // cursor displacement velocity
+        dvy: 0,
+      }
+    }
+
+    // In-place reset — avoids GC from new object allocation every reset
+    function resetLeaf(leaf, scatter) {
+      const l   = LAYERS[leaf.layer]
+      const pos = spawnPos(scatter)
+      const spd = rand(l.speedMin, l.speedMax)
+      leaf.x          = pos.x
+      leaf.y          = pos.y
+      leaf.size       = rand(l.sizeMin, l.sizeMax)
+      leaf.vx         = -spd * 0.64
+      leaf.vy         =  spd * 0.77
+      leaf.rot        = rand(0, Math.PI * 2)
+      leaf.rotSpeed   = rand(-0.025, 0.025)
+      leaf.swayOffset = rand(0, Math.PI * 2)
+      leaf.swayAmp    = rand(l.swayAmp * 0.5, l.swayAmp * 1.5)
+      leaf.swayFreq   = rand(0.003, 0.008)
+      leaf.opacity    = rand(l.opacityMin, l.opacityMax)
+      leaf.color      = COLORS[Math.floor(Math.random() * COLORS.length)]
+      leaf.dvx        = 0
+      leaf.dvy        = 0
+      // growEffect is fixed per leaf — don't reassign
+    }
+
+    // Init all leaves
+    const leaves = []
+    LAYERS.forEach((_, i) => {
+      for (let j = 0; j < LAYERS[i].count; j++) {
+        leaves.push(makeLeaf(i, true)) // scatter across screen on load
+      }
+    })
+
+    // ── SOLID ELEMENT COLLISION — leaves deflect around UI elements.
+    // Elements are queried once; only their viewport rects are refreshed (cheaper than re-querying).
+    const SOLID_SEL = 'button, h1, h2, .terminal, .contact-email, .nav-logo, .limelight-item, #status, .stat-card, .project-card, .skill-card'
+    // Cache element list once — elements don't change, only their positions do
+    const solidEls  = Array.from(document.querySelectorAll(SOLID_SEL))
+    let   solidRects = []
+
+    // Rebuilds solidRects from current viewport positions; skips off-screen elements
+    function updateSolidRects() {
+      const vh = window.innerHeight
+      solidRects = []
+      for (let i = 0; i < solidEls.length; i++) {
+        const r = solidEls[i].getBoundingClientRect()
+        if (r.bottom < -20 || r.top > vh + 20) continue
+        const p = 10
+        solidRects.push({ left: r.left - p, right: r.right + p, top: r.top - p, bottom: r.bottom + p })
+      }
+    }
+
+    updateSolidRects()
+
+    // Throttled updater — runs outside RAF, at most once per 300ms
+    let rectTimer = null
+    function scheduleRectUpdate() {
+      if (rectTimer) return
+      rectTimer = setTimeout(() => { updateSolidRects(); rectTimer = null }, 300)
+    }
+    window.addEventListener('scroll', scheduleRectUpdate, { passive: true })
+    window.addEventListener('resize', scheduleRectUpdate)
+
+    // ── BURST LEAVES — explodes 22–31 leaves from click point; each has gravity + air drag ──
+    const bursts = []
+    const starBursts = []
+
+    // Spawns a radial burst — leaves in day mode, star sparks in night mode
+    function spawnBurst(x, y) {
+      if (isNight) {
+        // Star burst: glowing sparks scatter and fade
+        const count = 28 + Math.floor(Math.random() * 16)
+        for (let i = 0; i < count; i++) {
+          const angle = Math.random() * Math.PI * 2
+          const speed = 3 + Math.random() * 10
+          starBursts.push({
+            x, y,
+            vx:    Math.cos(angle) * speed,
+            vy:    Math.sin(angle) * speed - 3,
+            size:  0.8 + Math.random() * 2.8,
+            color: STAR_COLORS[Math.floor(Math.random() * STAR_COLORS.length)],
+            life:  1.0,
+            decay: 0.007 + Math.random() * 0.010,
+            glow:  Math.random() < 0.5,
+          })
+        }
+        return
+      }
+      // Leaf burst (day mode)
+      const count = 22 + Math.floor(Math.random() * 10) // 22–31 leaves
+      for (let i = 0; i < count; i++) {
+        const angle  = Math.random() * Math.PI * 2
+        const speed  = 4 + Math.random() * 9
+        const size   = 14 + Math.random() * 32
+        bursts.push({
+          x, y,
+          vx:       Math.cos(angle) * speed,
+          vy:       Math.sin(angle) * speed - 4, // upward bias for arc
+          rot:      Math.random() * Math.PI * 2,
+          rotSpeed: (Math.random() - 0.5) * 0.22,
+          size,
+          color:    COLORS[Math.floor(Math.random() * COLORS.length)],
+          life:     1.0,
+          decay:    0.007 + Math.random() * 0.008, // slower fade = more visible
+        })
+      }
+    }
+
+    // Attach to all buttons and the contact email link
+    // Delay scroll by 220ms so burst is visible before page moves
+    document.querySelectorAll('button, .contact-email, .social-btn, .lab-card').forEach(el => {
+      el.addEventListener('click', e => {
+        const r = el.getBoundingClientRect()
+        spawnBurst(r.left + r.width / 2, r.top + r.height / 2)
+
+        // Social buttons — delay link open so burst is visible first
+        if (el.classList.contains('social-btn') || el.classList.contains('contact-email') || el.classList.contains('lab-card')) {
+          const href = el.getAttribute('href')
+          if (href) {
+            e.preventDefault()
+            e.stopImmediatePropagation()
+            setTimeout(() => {
+              if (href.startsWith('mailto:') || href.startsWith('tel:')) {
+                window.location.href = href
+              } else {
+                window.open(href, '_blank', 'noopener')
+              }
+            }, 500)
+          }
+          return
+        }
+
+        // If the button triggers a scroll, delay it so burst renders first
+        const target = el.onclick?.toString().match(/getElementById\(['"](\w+)['"]\)/)
+        if (target) {
+          e.preventDefault()
+          e.stopImmediatePropagation()
+          setTimeout(() => {
+            document.getElementById(target[1])?.scrollIntoView({ behavior: 'smooth' })
+          }, 220)
+        }
+      }, true) // capture phase — fires before the inline onclick
+    })
+
+    // ── MOUSE TRACKING — stores position and per-frame velocity for repulsion strength scaling
+    const mouse = { x: -999, y: -999, vx: 0, vy: 0, px: -999, py: -999 }
+    window.addEventListener('mousemove', e => {
+      mouse.vx = e.clientX - mouse.px
+      mouse.vy = e.clientY - mouse.py
+      mouse.px = mouse.x
+      mouse.py = mouse.y
+      mouse.x  = e.clientX
+      mouse.y  = e.clientY
+
+      // Spotlight glow — update CSS vars on :root so all [data-glow] elements pick them up
+      const root = document.documentElement
+      root.style.setProperty('--x',  e.clientX.toFixed(1))
+      root.style.setProperty('--y',  e.clientY.toFixed(1))
+      root.style.setProperty('--xp', (e.clientX / window.innerWidth).toFixed(3))
+      root.style.setProperty('--yp', (e.clientY / window.innerHeight).toFixed(3))
+    }, { passive: true })
+
+    // Opt interactive elements into the spotlight glow system by adding the data-glow attribute
+    document.querySelectorAll('.btn-primary, .btn-ghost, .skill-card, .project-card, .stat-card, .contact-email').forEach(el => {
+      el.setAttribute('data-glow', '')
+    })
+
+    // Interaction radii per layer — far leaves barely react, near leaves react more
+    const CURSOR_RADIUS   = [ 40,  60,  85, 110, 130, 150, 175]
+    const CURSOR_STRENGTH = [0.5, 0.8, 1.1, 1.5, 1.9, 2.4, 3.0]
+
+    let frame = 0
+
+    // ── MAIN ANIMATION LOOP — runs at rAF rate (~60fps).
+    // Day mode: leaves + leaf bursts. Night mode: stardust + shooting stars + star bursts.
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      frame++
+
+      // Night mode — draw stardust instead of leaves
+      if (isNight) {
+        drawStardust()
+        requestAnimationFrame(animate)
+        return
+      }
+
+      leaves.forEach(leaf => {
+        // Sway perpendicular to travel direction (roughly vertical oscillation)
+        const sway = Math.sin(frame * leaf.swayFreq + leaf.swayOffset) * leaf.swayAmp
+
+        // Cursor repulsion: push leaf away when within radius, scaled by cursor speed
+        const dx   = leaf.x - mouse.x
+        const dy   = leaf.y - mouse.y
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        const r    = CURSOR_RADIUS[leaf.layer]
+        if (dist < r && dist > 0) {
+          const force   = (1 - dist / r) * CURSOR_STRENGTH[leaf.layer]
+          const cursorSpeed = Math.min(4, Math.sqrt(mouse.vx * mouse.vx + mouse.vy * mouse.vy) * 0.15 + 1)
+          leaf.dvx += (dx / dist) * force * cursorSpeed
+          leaf.dvy += (dy / dist) * force * cursorSpeed
+        }
+        // Solid element repulsion — closest point on rect to leaf
+        const leafR = leaf.size * 0.45 + 6 // effective collision radius
+        for (const rect of solidRects) {
+          // Quick broad-phase: skip if clearly too far
+          if (leaf.x < rect.left - leafR * 3 || leaf.x > rect.right  + leafR * 3 ||
+              leaf.y < rect.top  - leafR * 3 || leaf.y > rect.bottom + leafR * 3) continue
+
+          const cx  = Math.max(rect.left, Math.min(leaf.x, rect.right))
+          const cy  = Math.max(rect.top,  Math.min(leaf.y, rect.bottom))
+          const ddx = leaf.x - cx
+          const ddy = leaf.y - cy
+          const d   = Math.sqrt(ddx * ddx + ddy * ddy)
+
+          if (d < leafR && d > 0) {
+            const force = (1 - d / leafR) * 2.5
+            leaf.dvx += (ddx / d) * force
+            leaf.dvy += (ddy / d) * force
+            leaf.rot += 0.05 * Math.sign(leaf.dvx) // slight spin on impact
+          } else if (d === 0) {
+            // Leaf centre is inside rect — eject opposite to travel
+            leaf.dvx -= leaf.vx
+            leaf.dvy -= leaf.vy
+          }
+        }
+
+        // Exponential decay brings displacement velocity back to zero (natural path)
+        leaf.dvx *= 0.91
+        leaf.dvy *= 0.91
+
+        leaf.x   += leaf.vx + leaf.dvx + sway * 0.4
+        leaf.y   += leaf.vy + leaf.dvy + Math.abs(sway) * 0.2
+        leaf.rot += leaf.rotSpeed + (leaf.dvx * 0.04) // spin a bit when pushed
+
+        // Reset when leaf exits bottom or left
+        if (leaf.y > canvas.height + 60 || leaf.x < -80) {
+          resetLeaf(leaf, false)
+        }
+
+        // Draw
+        ctx.save()
+        ctx.translate(leaf.x, leaf.y)
+        ctx.rotate(leaf.rot)
+
+        // Grow effect: scale 0.12 → 1.0 as leaf travels toward bottom
+        let drawOpacity = leaf.opacity
+        if (leaf.growEffect) {
+          const t = Math.max(0, Math.min(1, leaf.y / canvas.height))
+          const scale = 0.12 + t * 0.88
+          ctx.scale(scale, scale)
+          drawOpacity = leaf.opacity * (0.3 + t * 0.7) // fade in as it grows
+        }
+        ctx.globalAlpha = drawOpacity
+
+        const s = leaf.size * 0.45
+
+        ctx.fillStyle = leaf.color
+        traceMapleLeaf(ctx, s)
+        ctx.fill()
+
+        ctx.globalAlpha = drawOpacity * 0.25
+        ctx.strokeStyle = 'rgba(0,0,0,0.8)'
+        ctx.lineWidth   = s * 0.05
+        ctx.stroke()
+
+        drawVeins(ctx, s, drawOpacity)
+
+        // Draw petiole (stem) extending below the leaf body
+        ctx.globalAlpha = drawOpacity * 0.7
+        ctx.strokeStyle = leaf.color
+        ctx.lineWidth   = s * 0.07
+        ctx.beginPath()
+        ctx.moveTo(0, s * 0.88)
+        ctx.lineTo(0, s * 1.55)
+        ctx.stroke()
+
+        ctx.restore()
+      })
+
+      // ── draw & update burst leaves — iterate in reverse so splice doesn't skip elements ──
+      for (let i = bursts.length - 1; i >= 0; i--) {
+        const b = bursts[i]
+        b.x   += b.vx
+        b.y   += b.vy
+        b.vy  += 0.18          // gravity
+        b.vx  *= 0.97          // air drag
+        b.rot += b.rotSpeed
+        b.life -= b.decay
+
+        if (b.life <= 0) { bursts.splice(i, 1); continue }
+
+        const s = b.size * 0.45
+        ctx.save()
+        ctx.translate(b.x, b.y)
+        ctx.rotate(b.rot)
+        ctx.globalAlpha = Math.min(1, b.life * 1.5) // quick fade toward end
+
+        ctx.fillStyle = b.color
+        traceMapleLeaf(ctx, s)
+        ctx.fill()
+
+        ctx.globalAlpha = Math.min(1, b.life * 1.5) * 0.25
+        ctx.strokeStyle = 'rgba(0,0,0,0.8)'
+        ctx.lineWidth   = s * 0.05
+        ctx.stroke()
+
+        drawVeins(ctx, s, Math.min(1, b.life * 1.5))
+
+        ctx.restore()
+      }
+
+      requestAnimationFrame(animate)
+    }
+
+    animate()
+  </script>
+
+</body>
+</html>
