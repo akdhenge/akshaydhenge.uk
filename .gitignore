@@ -12,8 +12,6 @@ tsconfig.node.tsbuildinfo
 # React/Vite app (replaced by deploy/)
 src/
 public/
-/index.html
-preview.html
 package.json
 package-lock.json
 vite.config.ts
