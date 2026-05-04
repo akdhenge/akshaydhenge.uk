@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: #020617; min-height: 100vh; padding: 2rem; color: white; line-height: 1.5; }
+    .container { max-width: 1400px; margin: 0 auto; }
+    
+    /* Header */
+    .header { margin-bottom: 2rem; }
+    .header-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
+    .pulse-dot { width: 12px; height: 12px; background: #22d3ee; border-radius: 50%; animation: pulse 2s infinite; box-shadow: 0 0 10px #22d3ee; }
+    @keyframes pulse { 0%,100%{opacity:1; box-shadow: 0 0 10px #22d3ee;} 50%{opacity:0.5; box-shadow: 0 0 2px #22d3ee;} }
+    h1 { font-family: 'JetBrains Mono', monospace; font-size: 1.75rem; font-weight: 700; letter-spacing: -0.025em; }
+    .subtitle { color: #94a3b8; font-size: 1rem; margin-left: 1.75rem; }
+
+    /* Breadcrumb */
+    .breadcrumb { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 2rem; font-size: 0.85rem; flex-wrap: wrap; background: rgba(15,23,42,0.6); padding: 0.75rem 1rem; border-radius: 0.5rem; border: 1px solid #1e293b; }
+    .bc-item { color: #94a3b8; cursor: pointer; transition: color 0.2s; font-weight: 500; }
+    .bc-item:hover { color: #22d3ee; }
+    .bc-item.active { color: white; cursor: default; }
+    .bc-sep { color: #475569; }
+
+    /* Back button */
+    .back-btn { display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(30,41,59,0.5); border: 1px solid #1e293b; border-radius: 0.5rem; padding: 0.5rem 1rem; font-size: 0.85rem; font-weight: 500; color: #cbd5e1; cursor: pointer; transition: all 0.2s; margin-bottom: 1.5rem; font-family: inherit; }
+    .back-btn:hover { background: rgba(30,41,59,0.8); color: white; border-color: #334155; transform: translateX(-2px); }
+
+    /* ── Interactive Diagram (Levels 0 & 1) ── */
+    .diagram-wrap { width: 100%; overflow-x: auto; margin-top: 1rem; padding-bottom: 1rem; }
+    .diagram-scene { position: relative; width: 1050px; height: 600px; background: rgba(15,23,42,0.4); border: 1px solid #1e293b; border-radius: 1rem; margin: 0 auto; backdrop-filter: blur(10px); background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px); background-size: 20px 20px; }
+    .conn-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+    
+    .tile { position: absolute; width: 200px; cursor: pointer; z-index: 10;
+      background: rgba(15,23,42,0.85); border: 1px solid #1e293b;
+      border-top-width: 4px; border-radius: 0.75rem; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); backdrop-filter: blur(5px); }
+    .tile:hover { transform: translateY(-5px) scale(1.02); z-index: 20; box-shadow: 0 15px 30px rgba(0,0,0,0.5); }
+    .tile-head { display: flex; align-items: center; gap: 10px; padding: 12px; }
+    .tile-icon { font-size: 1.5rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2)); }
+    .comp-dot { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
+    .tile-name { font-size: 0.95rem; font-weight: 700; color: #f8fafc; font-family: 'JetBrains Mono', monospace; line-height: 1.2; }
+    .tile-body { padding: 0 12px 12px; font-size: 0.8rem; color: #94a3b8; line-height: 1.4; }
+    
+    .tile.central { width: 240px; background: rgba(15,23,42,0.95); box-shadow: 0 0 40px rgba(34,211,238,0.1); }
+    .tile.central .tile-name { font-size: 1.1rem; }
+    
+    /* External system nodes for L1 */
+    .tile.external { background: rgba(30,41,59,0.3); border: 2px dashed #475569; border-top: 2px dashed #475569; box-shadow: none; cursor: pointer; transition: all 0.2s; }
+    .tile.external:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); border-color: #94a3b8; }
+    .tile.external .tile-name { color: #94a3b8; }
+    .tile.external .tile-icon { filter: grayscale(100%); opacity: 0.7; }
+
+    .path-line { stroke-dasharray: 6; animation: dash 20s linear infinite; }
+    @keyframes dash { to { stroke-dashoffset: -200; } }
+    
+    /* ── Subsystem Header ── */
+    .sys-header { background: rgba(15,23,42,0.6); border: 1px solid #1e293b; border-radius: 1rem; padding: 1.5rem 2rem; margin-bottom: 1.5rem; display: flex; align-items: flex-start; gap: 1.5rem; backdrop-filter: blur(10px); }
+    .sys-icon  { font-size: 3rem; flex-shrink: 0; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); }
+    .sys-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; font-family: 'JetBrains Mono', monospace; }
+    .sys-desc  { font-size: 0.95rem; color: #94a3b8; }
+
+    /* ── Level 2: Technical detail ── */
+    .tech-panel { background: rgba(15,23,42,0.6); border: 1px solid #1e293b; border-radius: 1rem; padding: 2rem; max-width: 900px; backdrop-filter: blur(10px); }
+    .tech-title    { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; font-family: 'JetBrains Mono', monospace; color: white; }
+    .tech-subtitle { font-size: 0.95rem; color: #94a3b8; margin-bottom: 2rem; }
+    .tech-sec      { margin-bottom: 1.5rem; }
+    .tech-sec-lbl  { font-size: 0.75rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #64748b; margin-bottom: 0.75rem; }
+    .tech-file     { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: #22d3ee; background: rgba(34,211,238,0.1); border: 1px solid rgba(34,211,238,0.2); border-radius: 0.375rem; padding: 0.4rem 0.75rem; display: inline-block; }
+    .tech-class    { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: #a78bfa; background: rgba(167,139,250,0.1); padding: 0.2rem 0.5rem; border-radius: 0.25rem; }
+    .tech-list     { list-style: none; }
+    .tech-list li  { font-size: 0.9rem; color: #cbd5e1; padding: 0.5rem 0; border-bottom: 1px solid rgba(30,41,59,0.5); display: flex; align-items: flex-start; gap: 0.75rem; }
+    .tech-list li:last-child { border-bottom: none; }
+    .tech-list li::before { content: '▹'; color: #38bdf8; font-weight: bold; flex-shrink: 0; margin-top: 0.1rem; }
+    .tech-signal { color: #34d399; font-family: 'JetBrains Mono', monospace; background: rgba(52,211,153,0.1); padding: 0.1rem 0.4rem; border-radius: 0.25rem; font-size: 0.85rem; }
+
+    /* Footer */
+    .footer { text-align: center; margin-top: 3rem; color: #475569; font-size: 0.8rem; font-family: 'JetBrains Mono', monospace; padding-top: 1rem; border-top: 1px dashed #1e293b; }
+
+    /* Fade-in */
+    .fade-in { animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="header-row"><div class="pulse-dot"></div><h1>Portfolio Web App Architecture</h1></div>
+    <p class="subtitle">Click any block to explore deeper &mdash; each level gets more technical</p>
+  </div>
+  <div class="breadcrumb" id="bc"></div>
+  <div id="content"></div>
+</div>
+
+<script>
+// ================= DATA START =================
+
+// 1. Level 0 Overview
+const OVERVIEW = [
+  { id:'app', central: true, icon:'⚛️', color:'cyan', title:'Portfolio Web App', summary:'Main application entry point and layout orchestration.' },
+  { id:'ui', icon:'🎨', color:'violet', title:'UI Components', summary:'Section components and visual elements (Hero, About, etc.).' },
+  { id:'hooks', icon:'🪝', color:'emerald', title:'Hooks & Logic', summary:'Custom React hooks and state management (Konami, Reveal).' },
+  { id:'assets', icon:'📦', color:'amber', title:'Static Assets', summary:'Videos, images, and public resources served by the app.' }
+];
+
+// 2. Subsystems
+const SUBSYSTEMS = {
+  app: {
+    title: 'Portfolio App', icon: '⚛️', color: '#22d3ee', desc: 'Main React application structure and layout orchestration.',
+    components: [
+      { id: 'main', title: 'main.tsx', desc: 'Application entry point, initializes React root.', color: '#22d3ee', detail: true },
+      { id: 'app_tsx', title: 'App.tsx', desc: 'Main layout, scroll logic, background video, and section rendering.', color: '#22d3ee', detail: true }
+    ]
+  },
+  ui: {
+    title: 'UI Components', icon: '🎨', color: '#a78bfa', desc: 'Reusable section components that make up the portfolio interface.',
+    components: [
+      { id: 'hero', title: 'Hero', desc: 'Main landing section with title and initial impact.', color: '#a78bfa', detail: true },
+      { id: 'nav', title: 'Nav', desc: 'Navigation bar for jumping between sections.', color: '#a78bfa', detail: true },
+      { id: 'sections', title: 'Content Sections', desc: 'About, Skills, Experience, Projects, Contact.', color: '#a78bfa', detail: true },
+      { id: 'interactive', title: 'Interactive Sections', desc: 'IdeaReactor, LampSection, FunBreak.', color: '#a78bfa', detail: true }
+    ]
+  },
+  hooks: {
+    title: 'Hooks & Logic', icon: '🪝', color: '#34d399', desc: 'Custom React hooks for interaction and scroll animation.',
+    components: [
+      { id: 'useKonami', title: 'useKonami', desc: 'Listens for the Konami code sequence.', color: '#34d399', detail: true },
+      { id: 'useReveal', title: 'useReveal', desc: 'Intersection observer logic for scroll animations.', color: '#34d399', detail: true }
+    ]
+  },
+  assets: {
+    title: 'Static Assets', icon: '📦', color: '#fbbf24', desc: 'Media files and resources served by the application.',
+    components: [
+      { id: 'video', title: 'Background Video', desc: 'desk.mp4 used in the hero section.', color: '#fbbf24', detail: false },
+      { id: 'images', title: 'Images', desc: 'Profile pictures, backgrounds like stary_sky.png.', color: '#fbbf24', detail: false }
+    ]
+  }
+};
+
+// 3. Technical Detail
+const TECH = {
+  main: {
+    title: 'main.tsx', subtitle: 'Application Entry Point', file: 'src/main.tsx', cls: 'createRoot',
+    notes: ['Initializes React DOM', 'Wraps App in StrictMode', 'Imports global CSS'], signals: []
+  },
+  app_tsx: {
+    title: 'App.tsx', subtitle: 'Main Layout & Orchestrator', file: 'src/App.tsx', cls: 'function App()',
+    notes: ['Manages global scroll state for animations', 'Handles Konami code activation and Easter eggs', 'Controls background video playback and muting', 'Renders all individual content sections in order'], signals: ['window.scrollY', 'mousemove']
+  },
+  hero: {
+    title: 'Hero Component', subtitle: 'Landing View', file: 'src/components/Hero.tsx', cls: 'function Hero()',
+    notes: ['Displays primary title and introductory text', 'Sticky positioning fades out gracefully on scroll'], signals: []
+  },
+  nav: {
+    title: 'Navigation', subtitle: 'Top Bar', file: 'src/components/Nav.tsx', cls: 'function Nav()',
+    notes: ['Sticky navigation links to main areas', 'Smooth scrolls to sections on click'], signals: []
+  },
+  sections: {
+    title: 'Standard Content Sections', subtitle: 'Portfolio Data', file: 'src/components/{About, Experience, Projects, Skills}.tsx', cls: 'Multiple Components',
+    notes: ['Renders static portfolio content (experience, projects, skills)', 'Uses useReveal hook to animate elements when they enter the viewport'], signals: ['IntersectionObserver']
+  },
+  interactive: {
+    title: 'Interactive Elements', subtitle: 'Special Features', file: 'src/components/{IdeaReactor, LampSection}.tsx', cls: 'Interactive Components',
+    notes: ['Interactive visual elements to add flair', 'Contains custom animations and localized state'], signals: []
+  },
+  useKonami: {
+    title: 'useKonami Hook', subtitle: 'Easter Egg Logic', file: 'src/hooks/useKonami.ts', cls: 'function useKonami(callback)',
+    notes: ['Listens for global keydown events', 'Matches key sequence to the classic Konami code', 'Triggers provided callback when sequence is completed'], signals: ['keydown']
+  },
+  useReveal: {
+    title: 'useReveal Hook', subtitle: 'Scroll Animation Logic', file: 'src/hooks/useReveal.ts', cls: 'function useReveal()',
+    notes: ['Sets up an IntersectionObserver', 'Toggles CSS classes to fade elements in when they scroll into the viewport'], signals: ['IntersectionObserver']
+  }
+};
+
+// 4. Diagram Layouts (Level 0)
+const LAYOUT_L0 = {
+  app: { x: 405, y: 230 },
+  ui: { x: 750, y: 230 },
+  hooks: { x: 120, y: 110 },
+  assets: { x: 120, y: 350 }
+};
+
+// 5. Connections (Level 0)
+const CONNS_L0 = [
+  // [from, to, color, label]
+  ['app', 'ui', '#a78bfa', 'Renders'],
+  ['hooks', 'app', '#34d399', 'State & Events'],
+  ['assets', 'app', '#fbbf24', 'Media']
+];
+
+// 6. Diagram Layouts (Level 1)
+const LAYOUT_L1 = {
+  app: {
+    nodes: {
+      main: { x: 150, y: 250 },
+      app_tsx: { x: 425, y: 250 }
+    },
+    externals: [
+      { id: 'ext_ui', target: 'ui', icon: '🎨', title: 'UI Components', desc: 'Rendered by App', x: 700, y: 250 },
+      { id: 'ext_hooks', target: 'hooks', icon: '🪝', title: 'Hooks', desc: 'Used in App', x: 425, y: 50 },
+      { id: 'ext_assets', target: 'assets', icon: '📦', title: 'Assets', desc: 'Backgrounds', x: 425, y: 450 }
+    ],
+    connections: [
+      ['main', 'app_tsx', '#22d3ee', 'Mounts', false, 0],
+      ['app_tsx', 'ext_ui', '#a78bfa', 'Renders', false, 6],
+      ['ext_hooks', 'app_tsx', '#34d399', 'Provides State', false, 6],
+      ['ext_assets', 'app_tsx', '#fbbf24', 'Video Src', false, 6]
+    ]
+  },
+  ui: {
+    nodes: {
+      nav: { x: 425, y: 50 },
+      hero: { x: 150, y: 150 },
+      sections: { x: 425, y: 250 },
+      interactive: { x: 700, y: 250 }
+    },
+    externals: [
+      { id: 'ext_app', target: 'app', icon: '⚛️', title: 'App', desc: 'Parent', x: 425, y: 450 }
+    ],
+    connections: [
+      ['ext_app', 'nav', '#22d3ee', 'Renders', false, 6],
+      ['ext_app', 'hero', '#22d3ee', 'Renders', false, 6],
+      ['ext_app', 'sections', '#22d3ee', 'Renders', false, 6],
+      ['ext_app', 'interactive', '#22d3ee', 'Renders', false, 6]
+    ]
+  },
+  hooks: {
+    nodes: {
+      useKonami: { x: 250, y: 150 },
+      useReveal: { x: 550, y: 150 }
+    },
+    externals: [
+      { id: 'ext_app', target: 'app', icon: '⚛️', title: 'App', desc: 'Consumer', x: 400, y: 350 }
+    ],
+    connections: [
+      ['useKonami', 'ext_app', '#34d399', 'Event triggers', false, 6],
+      ['useReveal', 'ext_app', '#34d399', 'Scroll pos', false, 6]
+    ]
+  },
+  assets: {
+    nodes: {
+      video: { x: 250, y: 150 },
+      images: { x: 550, y: 150 }
+    },
+    externals: [
+      { id: 'ext_app', target: 'app', icon: '⚛️', title: 'App', desc: 'Consumer', x: 400, y: 350 }
+    ],
+    connections: [
+      ['video', 'ext_app', '#fbbf24', 'Plays', false, 6],
+      ['images', 'ext_app', '#fbbf24', 'Displays', false, 6]
+    ]
+  }
+};
+
+// ================= DATA END =================
+
+let ST = { level:0, sub:null, comp:null };
+
+function go(level, sub, comp){
+  ST = { level, sub:sub||ST.sub, comp:comp||null };
+  render();
+}
+
+function render(){
+  const bc = document.getElementById('bc');
+  const crumbs = [{ label:'System Overview', level:0 }];
+  if(ST.sub) crumbs.push({ label:SUBSYSTEMS[ST.sub].title, level:1 });
+  if(ST.comp && TECH[ST.comp]) crumbs.push({ label:TECH[ST.comp].title, level:2 });
+  
+  if (crumbs.length === 1) {
+    bc.style.display = 'none';
+  } else {
+    bc.style.display = 'flex';
+    bc.innerHTML = crumbs.map((c,i)=>{
+      const last = i===crumbs.length-1;
+      return (i?'<span class="bc-sep">/</span>':'') +
+        `<span class="bc-item${last?' active':''}" ${last?'':` onclick="go(${c.level})"`}>${c.label}</span>`;
+    }).join('');
+  }
+
+  const el = document.getElementById('content');
+  if(ST.level===0)      el.innerHTML = level0();
+  else if(ST.level===1) el.innerHTML = level1();
+  else                  el.innerHTML = level2();
+
+  el.classList.remove('fade-in');
+  void el.offsetWidth;
+  el.classList.add('fade-in');
+}
+
+function getMarkerDefs() {
+  const colors = ['22d3ee', '34d399', 'a78bfa', 'fb7185', 'fbbf24', 'fb923c'];
+  return colors.map(c => `<marker id="a-${c}" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#${c}"/></marker>`).join('');
+}
+
+function conn(id1, id2, color, label, reverseArrow = false, dashArray = null, customMap = null) {
+  const p1 = customMap ? customMap[id1] : LAYOUT_L0[id1];
+  const p2 = customMap ? customMap[id2] : LAYOUT_L0[id2];
+  if (!p1 || !p2) return '';
+  
+  const n1 = OVERVIEW.find(o => o.id === id1);
+  const n2 = OVERVIEW.find(o => o.id === id2);
+  const w1 = (n1 && n1.central && !customMap) ? 240 : 200;
+  const w2 = (n2 && n2.central && !customMap) ? 240 : 200;
+  
+  const cx1 = p1.x + (w1/2), cy1 = p1.y + 60;
+  const cx2 = p2.x + (w2/2), cy2 = p2.y + 60;
+  
+  const strokeDash = dashArray ? `stroke-dasharray="${dashArray}" opacity="0.4"` : `stroke-dasharray="6" opacity="0.6" class="path-line"`;
+  
+  const pathD = `M ${cx1} ${cy1} C ${(cx1+cx2)/2} ${cy1}, ${(cx1+cx2)/2} ${cy2}, ${cx2} ${cy2}`;
+  const reverseD = `M ${cx2} ${cy2} C ${(cx1+cx2)/2} ${cy2}, ${(cx1+cx2)/2} ${cy1}, ${cx1} ${cy1}`;
+  
+  const lineHtml = reverseArrow ? 
+    `<path d="${reverseD}" fill="none" stroke="${color}" stroke-width="2" ${strokeDash} marker-end="url(#a-${color.replace('#','')})"/>` :
+    `<path d="${pathD}" fill="none" stroke="${color}" stroke-width="2" ${strokeDash} marker-end="url(#a-${color.replace('#','')})"/>`;
+      
+  let labelHtml = '';
+  if (label) {
+    const rw = Math.max(80, label.length * 7 + 12);
+    labelHtml = `<rect x="${(cx1+cx2)/2 - rw/2}" y="${(cy1+cy2)/2 - 18}" width="${rw}" height="16" fill="rgba(15,23,42,0.8)" rx="4"/>
+                 <text x="${(cx1+cx2)/2}" y="${(cy1+cy2)/2 - 6}" fill="${color}" font-size="10" font-family="Inter,sans-serif" font-weight="600" text-anchor="middle">${label}</text>`;
+  }
+                 
+  return `
+    ${lineHtml}
+    <circle cx="${(cx1+cx2)/2}" cy="${(cy1+cy2)/2}" r="4" fill="${color}"/>
+    ${labelHtml}
+  `;
+}
+
+function level0(){
+  const svgs = CONNS_L0.map(c => conn(c[0], c[1], c[2], c[3])).join('');
+
+  const tiles = OVERVIEW.map(b => {
+    const pos = LAYOUT_L0[b.id];
+    let borderColor = '#334155';
+    if(b.color==='cyan') borderColor='#22d3ee';
+    if(b.color==='emerald') borderColor='#34d399';
+    if(b.color==='violet') borderColor='#a78bfa';
+    if(b.color==='rose') borderColor='#fb7185';
+    if(b.color==='amber') borderColor='#fbbf24';
+    if(b.color==='orange') borderColor='#fb923c';
+
+    const isCenter = !!b.central;
+
+    return `
+      <div class="tile ${isCenter ? 'central' : ''}" style="left:${pos.x}px; top:${pos.y}px; border-top-color: ${borderColor};" onclick="go(1,'${b.id}')">
+        <div class="tile-head">
+          <div class="tile-icon">${b.icon}</div>
+          <div class="tile-name">${b.title}</div>
+        </div>
+        <div class="tile-body">${isCenter ? b.summary : b.summary.substring(0, 75) + '...'}</div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="diagram-wrap">
+      <div class="diagram-scene">
+        <svg class="conn-svg">
+          <defs>${getMarkerDefs()}</defs>
+          ${svgs}
+        </svg>
+        ${tiles}
+      </div>
+    </div>
+  `;
+}
+
+function level1(){
+  const sysId = ST.sub;
+  const sys = SUBSYSTEMS[sysId];
+  const conf = LAYOUT_L1[sysId];
+
+  // Merge internal and external nodes for path coordinates
+  const mergedMap = {};
+  for(const [k,v] of Object.entries(conf.nodes)) mergedMap[k] = v;
+  conf.externals.forEach(ext => mergedMap[ext.id] = ext);
+
+  const svgs = conf.connections.map(c => conn(c[0], c[1], c[2], c[3], c[4], c[5], mergedMap)).join('');
+
+  const tiles = sys.components.map(c => {
+    const pos = conf.nodes[c.id];
+    if(!pos) return '';
+    return `
+      <div class="tile" style="left:${pos.x}px; top:${pos.y}px; border-top-color: ${c.color};" onclick="${c.detail ? `go(2,null,'${c.id}')` : ''}">
+        <div class="tile-head" style="padding-bottom: 4px;">
+          <div class="comp-dot" style="background:${c.color}"></div>
+          <div class="tile-name">${c.title}</div>
+        </div>
+        <div class="tile-body" style="font-size: 0.75rem;">${c.desc.substring(0, 70)}...</div>
+        ${c.detail ? `<div class="comp-hint" style="padding: 6px 12px; font-size: 0.65rem; color: #475569; border-top: 1px dashed #1e293b;">View details &rarr;</div>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  const extTiles = conf.externals.map(ext => `
+    <div class="tile external" style="left:${ext.x}px; top:${ext.y}px;" ${ext.target ? `onclick="go(1,'${ext.target}')"` : ''}>
+      <div class="tile-head" style="padding-bottom: 4px;">
+        <div class="tile-icon" style="font-size: 1.1rem;">${ext.icon}</div>
+        <div class="tile-name">${ext.title}</div>
+      </div>
+      <div class="tile-body" style="font-size: 0.7rem; color: #64748b;">[External] ${ext.desc}</div>
+      ${ext.target ? `<div class="comp-hint" style="padding: 4px 12px 10px; font-size: 0.65rem; color: #38bdf8; text-align: center;">Jump to subsystem &rarr;</div>` : ''}
+    </div>
+  `).join('');
+
+  return `
+    <button class="back-btn" onclick="go(0)">&larr; Back to Overview</button>
+    <div class="sys-header">
+      <div class="sys-icon">${sys.icon}</div>
+      <div>
+        <div class="sys-title" style="color:${sys.color}">${sys.title}</div>
+        <div class="sys-desc">${sys.desc}</div>
+      </div>
+    </div>
+    
+    <div class="diagram-wrap">
+      <div class="diagram-scene">
+        <svg class="conn-svg">
+          <defs>${getMarkerDefs()}</defs>
+          ${svgs}
+        </svg>
+        ${tiles}
+        ${extTiles}
+      </div>
+    </div>
+  `;
+}
+
+function level2(){
+  const d = TECH[ST.comp];
+  if(!d){ ST.level=1; return level1(); }
+  const sigs = d.signals&&d.signals.length ? `
+    <div class="tech-sec">
+      <div class="tech-sec-lbl">Key Signals / State</div>
+      <ul class="tech-list">${d.signals.map(s=>`<li><span class="tech-signal">${s}</span></li>`).join('')}</ul>
+    </div>` : '';
+  return `
+    <button class="back-btn" onclick="go(1)">&larr; Back to ${SUBSYSTEMS[ST.sub].title}</button>
+    <div class="tech-panel">
+      <div class="tech-title">${d.title}</div>
+      <div class="tech-subtitle">${d.subtitle}</div>
+      <div class="tech-sec">
+        <div class="tech-sec-lbl">Source File</div>
+        <div class="tech-file">${d.file}</div>
+      </div>
+      <div class="tech-sec">
+        <div class="tech-sec-lbl">Class / Entry Point</div>
+        <ul class="tech-list"><li><span class="tech-class">${d.cls}</span></li></ul>
+      </div>
+      <div class="tech-sec">
+        <div class="tech-sec-lbl">Key Behaviors</div>
+        <ul class="tech-list">${d.notes.map(n=>`<li>${n}</li>`).join('')}</ul>
+      </div>
+      ${sigs}
+    </div>`;
+}
+
+render();
+</script>
+</body>
+</html>
