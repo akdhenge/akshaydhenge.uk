@@ -1619,6 +1619,20 @@
         <!-- CARD STACK (left) -->
         <div class="card-stack" id="card-stack">
           <!-- Cards are rendered back-to-front; JS keeps track of order -->
+          <div class="stack-card" data-index="4">
+            <div class="project-tag">Career · Tracker</div>
+            <div class="project-name">Embedded FAANG Prep Tracker</div>
+            <div class="project-desc">A single-page dashboard tracking a 16-week embedded/firmware interview prep plan — 236 tasks across DSA, embedded C, systems knowledge, and mock interviews, with progress bars, streaks, and an application pipeline.</div>
+            <div class="project-tech">
+              <span class="tech-badge">HTML/CSS/JS</span>
+              <span class="tech-badge">localStorage</span>
+            </div>
+            <a href="/career" target="_blank" rel="noopener"
+               style="display:inline-flex;align-items:center;gap:0.35rem;margin-top:auto;padding-top:1rem;font-size:0.78rem;color:var(--accent3);text-decoration:none;opacity:0.85;transition:opacity 0.2s"
+               onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.85'">
+              Open Tracker <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
+          </div>
           <div class="stack-card" data-index="3">
             <div class="project-tag">Finance · Dashboard</div>
             <div class="project-name">Stonks Monitor</div>
@@ -2793,6 +2807,7 @@
         { index: 1, tag: 'AI · Blender',          title: 'Blender MCP',           desc: 'Custom MCP addon + server bridging Claude Code directly to Blender over TCP — generate, modify, and render 3D scenes via natural language.' },
         { index: 2, tag: 'Android · Hobby',        title: 'Lego Mosaic Creator',   desc: 'Android app that converts any photo into a LEGO mosaic build plan — part list, color mapping, and a step-by-step assembly guide.' },
         { index: 3, tag: 'Finance · Dashboard',    title: 'Stonks Monitor',        desc: 'An automated stock monitoring dashboard with a 16-bit arcade style UI. Employs scoring algorithms to rank assets based on value, growth, and technicals.' },
+        { index: 4, tag: 'Career · Tracker',       title: 'Embedded FAANG Prep Tracker', desc: 'A single-page dashboard tracking a 16-week embedded/firmware interview prep plan — 236 tasks across DSA, embedded C, systems knowledge, and mock interviews, with progress bars, streaks, and an application pipeline.' },
       ];
 
       const titleEl  = document.getElementById('stack-title');

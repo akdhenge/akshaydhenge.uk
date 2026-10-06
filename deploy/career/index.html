@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Embedded FAANG Prep Tracker</title>
+<style>
+:root{
+  --bg:#0b0f14; --panel:#121823; --panel2:#0f1420; --border:#232d3d;
+  --text:#e6edf3; --muted:#8b98a9; --accent:#4fb6ff; --accent2:#7ee6a8;
+  --warn:#f5c26b; --bad:#f06464; --done:#2ea04344;
+  --chip-e:#2e7d32; --chip-m:#b8860b; --chip-h:#c0392b;
+  --radius:10px;
+}
+[data-theme="light"]{
+  --bg:#f4f6f9; --panel:#ffffff; --panel2:#eef1f6;
+  --border:#dde3ec; --text:#1b2330; --muted:#5b6678; --accent:#1773c9; --accent2:#1a8f52;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  padding-bottom:60px;
+}
+a{color:var(--accent); text-decoration:none;}
+a:hover{text-decoration:underline;}
+header{
+  position:sticky; top:0; z-index:20; background:var(--panel); border-bottom:1px solid var(--border);
+  padding:12px 16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+}
+header h1{font-size:16px; margin:0; margin-right:auto; white-space:nowrap;}
+header .streak{font-size:13px; color:var(--warn); white-space:nowrap;}
+.btn{
+  background:var(--panel2); color:var(--text); border:1px solid var(--border); border-radius:8px;
+  padding:6px 10px; font-size:13px; cursor:pointer;
+}
+.btn:hover{border-color:var(--accent);}
+.btn.primary{background:var(--accent); color:#06131f; border-color:var(--accent); font-weight:600;}
+main{max-width:1100px; margin:0 auto; padding:16px;}
+.tabs{display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap;}
+.tab{
+  padding:7px 14px; border-radius:20px; background:var(--panel2); border:1px solid var(--border);
+  cursor:pointer; font-size:13px; color:var(--muted);
+}
+.tab.active{background:var(--accent); color:#06131f; border-color:var(--accent); font-weight:600;}
+.view{display:none;}
+.view.active{display:block;}
+.card{background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:14px; margin-bottom:14px;}
+.card h2{margin:0 0 10px; font-size:15px;}
+.card h3{margin:0 0 8px; font-size:13px; color:var(--muted); font-weight:600;}
+.progress-row{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
+.progress-row .label{min-width:140px; font-size:12.5px; color:var(--muted); flex-shrink:0;}
+.progress-row .label a{color:var(--text);}
+.pbar{flex:1; height:9px; background:var(--panel2); border-radius:6px; overflow:hidden; border:1px solid var(--border);}
+.pbar > div{height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width .3s;}
+.progress-row .pct{font-size:12px; color:var(--muted); width:64px; text-align:right; flex-shrink:0;}
+.overall-big{font-size:34px; font-weight:700; margin:4px 0;}
+.grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:10px;}
+@media (max-width:620px){.grid3{grid-template-columns:1fr 1fr;}}
+.stat{background:var(--panel2); border:1px solid var(--border); border-radius:8px; padding:10px; text-align:center;}
+.stat .n{font-size:20px; font-weight:700;}
+.stat .l{font-size:11px; color:var(--muted); margin-top:2px;}
+.controls{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; align-items:center;}
+input[type="text"], input[type="date"], select{
+  background:var(--panel2); color:var(--text); border:1px solid var(--border); border-radius:8px;
+  padding:6px 10px; font-size:13px;
+}
+input[type="text"]{flex:1; min-width:140px;}
+.seg{display:flex; border:1px solid var(--border); border-radius:8px; overflow:hidden;}
+.seg button{background:var(--panel2); color:var(--muted); border:none; padding:6px 12px; font-size:12.5px; cursor:pointer; border-right:1px solid var(--border);}
+.seg button:last-child{border-right:none;}
+.seg button.active{background:var(--accent); color:#06131f;}
+.section{margin-bottom:10px;}
+.section-head{
+  display:flex; align-items:center; gap:10px; cursor:pointer; padding:8px 4px; user-select:none;
+}
+.section-head .tri{font-size:11px; color:var(--muted); width:12px;}
+.section-head .title{font-weight:600; font-size:13.5px; flex:1;}
+.section-head .count{font-size:12px; color:var(--muted);}
+.section-body{display:none; padding:2px 4px 8px 22px;}
+.section-body.open{display:block;}
+.phase-tag{font-size:10px; padding:1px 6px; border-radius:10px; background:var(--panel2); border:1px solid var(--border); color:var(--muted);}
+ul.items{list-style:none; margin:0; padding:0;}
+ul.items li{
+  display:flex; align-items:center; gap:8px; padding:5px 2px; border-bottom:1px dashed var(--border); font-size:13.5px;
+}
+ul.items li:last-child{border-bottom:none;}
+ul.items li.done span.text{text-decoration:line-through; color:var(--muted);}
+.idtag{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:11px; color:var(--muted); background:var(--panel2); border:1px solid var(--border); border-radius:5px; padding:1px 5px; flex-shrink:0;}
+.diff{font-size:10px; font-weight:700; color:#fff; border-radius:5px; padding:1px 5px; flex-shrink:0;}
+.diff.E{background:var(--chip-e);}
+.diff.M{background:var(--chip-m);}
+.diff.H{background:var(--chip-h);}
+.lc{font-size:11px; color:var(--muted); flex-shrink:0;}
+input[type="checkbox"]{width:16px; height:16px; flex-shrink:0; accent-color:var(--accent);}
+table{width:100%; border-collapse:collapse; font-size:13px;}
+table th, table td{border:1px solid var(--border); padding:6px 8px; text-align:left; vertical-align:top;}
+table th{background:var(--panel2); font-size:12px; color:var(--muted);}
+table td[contenteditable="true"]{min-width:60px;}
+table td[contenteditable="true"]:focus{outline:1px solid var(--accent); background:var(--panel2);}
+.table-wrap{overflow-x:auto;}
+select.status-sel{font-size:12px; padding:3px 6px;}
+.linklist{list-style:none; margin:0; padding:0;}
+.linklist li{padding:6px 2px; border-bottom:1px dashed var(--border); font-size:13.5px; display:flex; gap:8px; align-items:baseline; flex-wrap:wrap;}
+.linklist .sec-tag{font-size:10.5px; color:var(--muted); background:var(--panel2); border:1px solid var(--border); border-radius:5px; padding:1px 6px; flex-shrink:0;}
+.today-box{display:flex; gap:16px; flex-wrap:wrap; align-items:center;}
+.today-box .big{font-size:26px; font-weight:700;}
+.muted{color:var(--muted); font-size:12px;}
+.row-actions{display:flex; gap:6px;}
+.small-btn{font-size:11px; padding:3px 7px;}
+footer.hint{max-width:1100px; margin:0 auto; padding:0 16px; color:var(--muted); font-size:11.5px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🛰️ Embedded FAANG Prep Tracker</h1>
+  <span class="streak" id="streakDisplay"></span>
+  <button class="btn" id="themeBtn">🌓 Theme</button>
+  <button class="btn" id="exportBtn">⬇ Export</button>
+  <button class="btn" id="importBtn">⬆ Import</button>
+  <input type="file" id="importFile" accept="application/json" style="display:none;">
+</header>
+
+<main>
+  <div class="tabs">
+    <div class="tab active" data-view="dashboard">Dashboard</div>
+    <div class="tab" data-view="tracker">Tracker</div>
+    <div class="tab" data-view="pipeline">Applications</div>
+    <div class="tab" data-view="weeklog">Weekly Log</div>
+    <div class="tab" data-view="links">Links</div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="view active" id="view-dashboard">
+    <div class="card">
+      <h2>Overall Progress</h2>
+      <div class="overall-big" id="overallPct">0%</div>
+      <div class="pbar"><div id="overallBar" style="width:0%"></div></div>
+      <div class="muted" id="overallCount" style="margin-top:6px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>This Week</h2>
+      <div class="today-box">
+        <div>
+          <div class="muted">Prep start date</div>
+          <input type="date" id="startDate">
+        </div>
+        <div>
+          <div class="muted">Current week</div>
+          <div class="big" id="todayWeek">—</div>
+        </div>
+        <div>
+          <div class="muted">Phase</div>
+          <div class="big" id="todayPhase">—</div>
+        </div>
+        <div style="flex:1; min-width:200px;">
+          <div class="muted">Focus</div>
+          <div id="todayFocus" style="font-size:14px;"></div>
+          <div class="muted" id="todayExit" style="margin-top:4px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Stats</h2>
+      <div class="grid3">
+        <div class="stat"><div class="n" id="statDone">0</div><div class="l">Tasks done</div></div>
+        <div class="stat"><div class="n" id="statTotal">0</div><div class="l">Total tasks</div></div>
+        <div class="stat"><div class="n" id="statStreak">0</div><div class="l">Day streak</div></div>
+        <div class="stat"><div class="n" id="statDsaDone">0</div><div class="l">DSA problems solved</div></div>
+        <div class="stat"><div class="n" id="statWeekDone">0</div><div class="l">Done this phase</div></div>
+        <div class="stat"><div class="n" id="statApplied">0</div><div class="l">Applications sent</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Progress by Phase</h2>
+      <div id="phaseBars"></div>
+    </div>
+
+    <div class="card">
+      <h2>Progress by Section</h2>
+      <div id="sectionBars"></div>
+    </div>
+  </div>
+
+  <!-- TRACKER -->
+  <div class="view" id="view-tracker">
+    <div class="card">
+      <div class="controls">
+        <input type="text" id="searchBox" placeholder="Search tasks (e.g. 'two sum', 'DSA-13', 'ring buffer')...">
+        <div class="seg" id="statusSeg">
+          <button data-v="all" class="active">All</button>
+          <button data-v="open">Open</button>
+          <button data-v="done">Done</button>
+        </div>
+        <select id="phaseFilter">
+          <option value="all">All phases</option>
+          <option value="P0">P0 — Visa/Career</option>
+          <option value="P1">P1 — Foundations</option>
+          <option value="P2">P2 — Core</option>
+          <option value="P3">P3 — Depth</option>
+          <option value="P4">P4 — Mocks/Apply</option>
+        </select>
+        <button class="btn" id="expandAll">Expand all</button>
+        <button class="btn" id="collapseAll">Collapse all</button>
+      </div>
+      <div id="sectionsContainer"></div>
+    </div>
+  </div>
+
+  <!-- PIPELINE -->
+  <div class="view" id="view-pipeline">
+    <div class="card">
+      <h2>Application Pipeline</h2>
+      <div class="controls"><button class="btn primary" id="addRowBtn">+ Add row</button></div>
+      <div class="table-wrap">
+        <table id="pipelineTable">
+          <thead>
+            <tr><th style="width:14%">Company</th><th style="width:18%">Role</th><th style="width:10%">Link</th><th style="width:10%">Referral</th><th style="width:14%">Status</th><th style="width:16%">Next step</th><th style="width:10%">Date</th><th style="width:4%"></th></tr>
+          </thead>
+          <tbody id="pipelineBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- WEEKLY LOG -->
+  <div class="view" id="view-weeklog">
+    <div class="card">
+      <h2>Weekly Log</h2>
+      <div class="table-wrap">
+        <table id="weeklogTable">
+          <thead><tr><th style="width:6%">Week</th><th style="width:16%">Problems solved</th><th style="width:28%">Topics covered</th><th style="width:8%">Hours</th><th>Notes / weak areas</th></tr></thead>
+          <tbody id="weeklogBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- LINKS -->
+  <div class="view" id="view-links">
+    <div class="card">
+      <div class="controls">
+        <input type="text" id="linkSearch" placeholder="Search links...">
+      </div>
+      <ul class="linklist" id="linksList"></ul>
+    </div>
+  </div>
+</main>
+<footer class="hint">Data persists in your browser's localStorage. Use Export regularly to back up progress as JSON.</footer>
+
+<script>
+/* ===================== DATA ===================== */
+const PHASES = {
+  P0:'Visa/Career', P1:'Foundations (wk 1-4)', P2:'Core (wk 5-8)', P3:'Depth (wk 9-12)', P4:'Mocks/Apply (wk 13-16)'
+};
+
+const TIMELINE = [
+ {week:1,phase:'P1',focus:'Arrays, hashing, two pointers + C pointers/memory',exit:'10 problems, C quiz clean'},
+ {week:2,phase:'P1',focus:'Strings, sliding window + bit manipulation',exit:'10 problems'},
+ {week:3,phase:'P1',focus:'Linked lists, stacks/queues + implement ring buffer in C',exit:'10 problems, ring buffer w/ tests'},
+ {week:4,phase:'P1',focus:'Binary search, sorting + C++ core (RAII, move, templates basics)',exit:'10 problems'},
+ {week:5,phase:'P2',focus:'Trees (DFS/BFS) + concurrency primitives',exit:'10 problems'},
+ {week:6,phase:'P2',focus:'Heaps, intervals + interrupts / ISRs / volatile',exit:'8 problems'},
+ {week:7,phase:'P2',focus:'Graphs (BFS/DFS/topo sort) + Linux kernel basics',exit:'8 problems, hello-world kernel module'},
+ {week:8,phase:'P2',focus:'Backtracking + memory: MMU, caches, DMA',exit:'8 problems'},
+ {week:9,phase:'P3',focus:'DP 1D + device drivers (char driver)',exit:'8 problems, char driver on VM/RPi'},
+ {week:10,phase:'P3',focus:'DP 2D + embedded system design #1-2',exit:'8 problems'},
+ {week:11,phase:'P3',focus:'Tries, union-find, misc + firmware update / boot flow',exit:'8 problems'},
+ {week:12,phase:'P3',focus:'Embedded design #3-4 + behavioral stories drafted',exit:'6 problems, 6 STAR stories'},
+ {week:13,phase:'P4',focus:'Mixed timed practice (45 min / problem)',exit:'2 mocks'},
+ {week:14,phase:'P4',focus:'Mocks + weak-area review',exit:'2 mocks'},
+ {week:15,phase:'P4',focus:'Apply / recruiter conversations; keep 3 problems/day',exit:'Applications out'},
+ {week:16,phase:'P4',focus:'Interview loop prep, final review',exit:'Ready'},
+];
+
+function it(id,text){
+  const m = text.match(/\((E|M|H)\)\s*$/);
+  return {id, text: text.replace(/\s*\((E|M|H)\)\s*$/,''), diff: m?m[1]:null};
+}
+
+const SECTIONS = [
+ {id:'visa', title:'Career & Visa Checklist', phase:'P0', group:'visa', items:[
+   it('VISA-01','Confirm current green card stage with employer/attorney: PERM filed? I-140 approved? Approval date?'),
+   it('VISA-02','If I-140 approved, note the date it hits 180 days (priority date retention)'),
+   it('VISA-03','Confirm H1B max-out date (6-year clock) and any extension basis'),
+   it('VISA-04','Verify current rules on H1B fees/policy for in-country change of employer (USCIS / attorney)'),
+   it('VISA-05','Build emergency fund target (>=6 months expenses)'),
+   it('VISA-06','Keep digital copies: I-797s, I-94, passport, pay stubs, degree evaluations'),
+   it('VISA-07',"Prepare recruiter question: \"Role supports H1B transfer? When does PERM start for new hires?\""),
+   it('VISA-08','Before accepting any offer: confirm transfer petition filing timeline and start date with new employer\'s immigration team'),
+ ]},
+ {id:'dsa-arr', title:'3.1 Arrays & Hashing', phase:'P1', group:'dsa', items:[
+   it('DSA-01','Two Sum (E)'), it('DSA-02','Contains Duplicate (E)'), it('DSA-03','Valid Anagram (E)'),
+   it('DSA-04','Group Anagrams (M)'), it('DSA-05','Top K Frequent Elements (M)'), it('DSA-06','Product of Array Except Self (M)'),
+   it('DSA-07','Longest Consecutive Sequence (M)'), it('DSA-08','Subarray Sum Equals K (M)'), it('DSA-09','Encode and Decode Strings (M)'),
+   it('DSA-10','Majority Element (E)'),
+ ]},
+ {id:'dsa-two', title:'3.2 Two Pointers', phase:'P1', group:'dsa', items:[
+   it('DSA-11','Valid Palindrome (E)'), it('DSA-12','Two Sum II - Input Array Is Sorted (M)'), it('DSA-13','3Sum (M)'),
+   it('DSA-14','Container With Most Water (M)'), it('DSA-15','Move Zeroes (E)'), it('DSA-16','Sort Colors (M)'),
+   it('DSA-17','Trapping Rain Water (H)'),
+ ]},
+ {id:'dsa-slide', title:'3.3 Sliding Window', phase:'P1', group:'dsa', items:[
+   it('DSA-18','Best Time to Buy and Sell Stock (E)'), it('DSA-19','Longest Substring Without Repeating Characters (M)'),
+   it('DSA-20','Longest Repeating Character Replacement (M)'), it('DSA-21','Permutation in String (M)'),
+   it('DSA-22','Minimum Window Substring (H)'), it('DSA-23','Sliding Window Maximum (H)'),
+ ]},
+ {id:'dsa-bit', title:'3.4 Bit Manipulation (high priority for embedded)', phase:'P1', group:'dsa', items:[
+   it('DSA-24','Number of 1 Bits (E)'), it('DSA-25','Counting Bits (E)'), it('DSA-26','Reverse Bits (E)'),
+   it('DSA-27','Single Number (E)'), it('DSA-28','Missing Number (E)'), it('DSA-29','Power of Two (E)'),
+   it('DSA-30','Sum of Two Integers (M)'), it('DSA-31','Bitwise AND of Numbers Range (M)'), it('DSA-32','Single Number II (M)'),
+   it('DSA-33','Reverse Integer (M)'),
+ ]},
+ {id:'dsa-stack', title:'3.5 Stack & Queue', phase:'P1', group:'dsa', items:[
+   it('DSA-34','Valid Parentheses (E)'), it('DSA-35','Min Stack (M)'), it('DSA-36','Evaluate Reverse Polish Notation (M)'),
+   it('DSA-37','Daily Temperatures (M)'), it('DSA-38','Implement Queue using Stacks (E)'), it('DSA-39','Design Circular Queue (M)'),
+   it('DSA-40','Largest Rectangle in Histogram (H)'),
+ ]},
+ {id:'dsa-ll', title:'3.6 Linked Lists (classic C-round material)', phase:'P1', group:'dsa', items:[
+   it('DSA-41','Reverse Linked List (E)'), it('DSA-42','Merge Two Sorted Lists (E)'), it('DSA-43','Linked List Cycle (E)'),
+   it('DSA-44','Reorder List (M)'), it('DSA-45','Remove Nth Node From End of List (M)'), it('DSA-46','Copy List with Random Pointer (M)'),
+   it('DSA-47','Add Two Numbers (M)'), it('DSA-48','LRU Cache (M)'), it('DSA-49','Merge k Sorted Lists (H)'),
+   it('DSA-50','Intersection of Two Linked Lists (E)'),
+ ]},
+ {id:'dsa-bs', title:'3.7 Binary Search', phase:'P1', group:'dsa', items:[
+   it('DSA-51','Binary Search (E)'), it('DSA-52','Search a 2D Matrix (M)'), it('DSA-53','Koko Eating Bananas (M)'),
+   it('DSA-54','Find Minimum in Rotated Sorted Array (M)'), it('DSA-55','Search in Rotated Sorted Array (M)'),
+   it('DSA-56','Time Based Key-Value Store (M)'), it('DSA-57','Median of Two Sorted Arrays (H)'),
+ ]},
+ {id:'dsa-tree', title:'3.8 Trees', phase:'P2', group:'dsa', items:[
+   it('DSA-58','Invert Binary Tree (E)'), it('DSA-59','Maximum Depth of Binary Tree (E)'), it('DSA-60','Diameter of Binary Tree (E)'),
+   it('DSA-61','Same Tree (E)'), it('DSA-62','Lowest Common Ancestor of a Binary Search Tree (M)'),
+   it('DSA-63','Binary Tree Level Order Traversal (M)'), it('DSA-64','Binary Tree Right Side View (M)'),
+   it('DSA-65','Validate Binary Search Tree (M)'), it('DSA-66','Kth Smallest Element in a BST (M)'),
+   it('DSA-67','Construct Binary Tree from Preorder and Inorder Traversal (M)'), it('DSA-68','Binary Tree Maximum Path Sum (H)'),
+   it('DSA-69','Serialize and Deserialize Binary Tree (H)'),
+ ]},
+ {id:'dsa-heap', title:'3.9 Heaps / Priority Queue', phase:'P2', group:'dsa', items:[
+   it('DSA-70','Kth Largest Element in an Array (M)'), it('DSA-71','Last Stone Weight (E)'), it('DSA-72','K Closest Points to Origin (M)'),
+   it('DSA-73','Task Scheduler (M)'), it('DSA-74','Find Median from Data Stream (H)'),
+ ]},
+ {id:'dsa-int', title:'3.10 Intervals', phase:'P2', group:'dsa', items:[
+   it('DSA-75','Merge Intervals (M)'), it('DSA-76','Insert Interval (M)'), it('DSA-77','Non-overlapping Intervals (M)'),
+   it('DSA-78','Meeting Rooms II (M)'),
+ ]},
+ {id:'dsa-graph', title:'3.11 Graphs', phase:'P2', group:'dsa', items:[
+   it('DSA-79','Number of Islands (M)'), it('DSA-80','Clone Graph (M)'), it('DSA-81','Rotting Oranges (M)'),
+   it('DSA-82','Pacific Atlantic Water Flow (M)'), it('DSA-83','Course Schedule (M)'), it('DSA-84','Course Schedule II (M)'),
+   it('DSA-85','Number of Connected Components in an Undirected Graph (M)'), it('DSA-86','Network Delay Time (M)'),
+   it('DSA-87','Word Ladder (H)'),
+ ]},
+ {id:'dsa-back', title:'3.12 Backtracking', phase:'P2', group:'dsa', items:[
+   it('DSA-88','Subsets (M)'), it('DSA-89','Combination Sum (M)'), it('DSA-90','Permutations (M)'),
+   it('DSA-91','Word Search (M)'), it('DSA-92','Letter Combinations of a Phone Number (M)'), it('DSA-93','N-Queens (H)'),
+ ]},
+ {id:'dsa-dp', title:'3.13 Dynamic Programming', phase:'P3', group:'dsa', items:[
+   it('DSA-94','Climbing Stairs (E)'), it('DSA-95','House Robber (M)'), it('DSA-96','House Robber II (M)'),
+   it('DSA-97','Coin Change (M)'), it('DSA-98','Longest Increasing Subsequence (M)'), it('DSA-99','Word Break (M)'),
+   it('DSA-100','Decode Ways (M)'), it('DSA-101','Unique Paths (M)'), it('DSA-102','Longest Common Subsequence (M)'),
+   it('DSA-103','Partition Equal Subset Sum (M)'), it('DSA-104','Edit Distance (M)'), it('DSA-105','Maximum Product Subarray (M)'),
+ ]},
+ {id:'dsa-misc', title:'3.14 Tries, Union-Find, Misc', phase:'P3', group:'dsa', items:[
+   it('DSA-106','Implement Trie (Prefix Tree) (M)'), it('DSA-107','Design Add and Search Words Data Structure (M)'),
+   it('DSA-108','Redundant Connection (M)'), it('DSA-109','Rotate Image (M)'), it('DSA-110','Spiral Matrix (M)'),
+   it('DSA-111','Set Matrix Zeroes (M)'), it('DSA-112','Insert Delete GetRandom O(1) (M)'), it('DSA-113','String to Integer (atoi) (M)'),
+   it('DSA-114','Gas Station (M)'), it('DSA-115','Jump Game (M)'),
+ ]},
+ {id:'ec', title:'4. Embedded C Coding Exercises', phase:'P1', group:'ec', items:[
+   it('EC-01','memcpy and memmove (handle overlap, alignment-aware fast path)'),
+   it('EC-02','strlen, strcpy, strcmp, strtok-style tokenizer'),
+   it('EC-03','atoi / itoa with overflow handling'),
+   it('EC-04','Lock-free single-producer/single-consumer ring buffer'),
+   it('EC-05','Ring buffer safe for ISR producer + main-loop consumer'),
+   it('EC-06','Fixed-block memory pool allocator (pool_alloc / pool_free)'),
+   it('EC-07','Simple malloc/free with free list + coalescing'),
+   it('EC-08','Endianness detect + bswap16/32/64'),
+   it('EC-09','Set / clear / toggle / test bit macros; extract bitfield (reg >> pos) & mask'),
+   it('EC-10','Count set bits (3 ways), find first set bit, round up to power of two'),
+   it('EC-11','Aligned allocation (aligned_malloc / aligned_free)'),
+   it('EC-12','Register map via volatile struct overlay; read-modify-write helpers'),
+   it('EC-13','Button debounce (time-based state machine)'),
+   it('EC-14','Table-driven finite state machine (e.g., protocol parser)'),
+   it('EC-15','CRC-8 / CRC-16 / CRC-32 (bitwise and table-driven)'),
+   it('EC-16','UART-style framed packet parser with escape bytes + checksum'),
+   it('EC-17','Software timer wheel / scheduler (callbacks at intervals)'),
+   it('EC-18','Doubly linked list (intrusive, Linux list_head style, container_of)'),
+   it('EC-19','Fixed-point math: Q15 multiply, saturating add'),
+   it('EC-20','Moving-average / exponential filter over a sample stream'),
+ ]},
+ {id:'c', title:'5.1 C', phase:'P1', group:'lang', items:[
+   it('C-01','Pointers, pointer arithmetic, arrays vs pointers, decay'),
+   it('C-02','const correctness (const int * vs int *const)'),
+   it('C-03','volatile - what it does and does NOT guarantee'),
+   it('C-04','Storage classes: static (file vs function scope), extern'),
+   it('C-05','Memory layout: text, data, bss, heap, stack; where each variable lives'),
+   it('C-06','Struct padding/alignment, packed, offsetof'),
+   it('C-07','Undefined behavior: signed overflow, strict aliasing, uninitialized reads'),
+   it('C-08','Integer promotion & implicit conversion pitfalls'),
+   it('C-09','Function pointers, callback tables'),
+   it('C-10','Preprocessor: macros pitfalls, do { } while (0), X-macros'),
+   it('C-11','Inline assembly basics, asm volatile, memory clobber'),
+   it('C-12','Linker scripts basics, sections, startup code (.data copy, .bss zero)'),
+ ]},
+ {id:'cpp', title:'5.2 C++', phase:'P1', group:'lang', items:[
+   it('CPP-01','RAII, rule of 0/3/5'),
+   it('CPP-02','Move semantics, rvalue references, std::move vs copy'),
+   it('CPP-03','Smart pointers: unique_ptr, shared_ptr, weak_ptr costs'),
+   it('CPP-04','Virtual functions, vtables, cost of dynamic dispatch'),
+   it('CPP-05','Templates, constexpr, compile-time computation'),
+   it('CPP-06','STL containers: complexity + memory behavior (vector, unordered_map, deque)'),
+   it('CPP-07','std::atomic, memory orders (relaxed, acquire, release, seq_cst)'),
+   it('CPP-08','std::thread, mutex, condition_variable, lock_guard / unique_lock'),
+   it('CPP-09','Embedded C++ subset: no exceptions/RTTI, static allocation'),
+   it('CPP-10','Undefined behavior & object lifetime basics'),
+ ]},
+ {id:'os', title:'6.1 Operating Systems & Concurrency', phase:'P2', group:'sys', items:[
+   it('OS-01','Processes vs threads; context switch cost'),
+   it('OS-02','Scheduling: preemptive, priority, round-robin, rate-monotonic'),
+   it('OS-03','Mutex vs semaphore vs spinlock - when each is correct'),
+   it('OS-04','Priority inversion + priority inheritance'),
+   it('OS-05','Deadlock conditions and avoidance'),
+   it('OS-06','Race conditions, atomics, memory barriers'),
+   it('OS-07','Producer/consumer with condition variables (code it)'),
+   it('OS-08','Reader-writer locks'),
+   it('OS-09','Virtual memory, paging, TLB, page faults'),
+   it('OS-10','System calls: user -> kernel transition'),
+ ]},
+ {id:'rt', title:'6.2 Embedded / RTOS', phase:'P2', group:'sys', items:[
+   it('RT-01','Interrupts: vector table, ISR rules (short, no blocking), deferred work'),
+   it('RT-02','Interrupt latency, nesting, priorities'),
+   it('RT-03','RTOS primitives: tasks, queues, event groups, timers (FreeRTOS / Zephyr)'),
+   it('RT-04','Bare-metal super-loop vs RTOS trade-offs'),
+   it('RT-05','Watchdogs and recovery strategy'),
+   it('RT-06','Low-power modes, clock gating, wake sources'),
+   it('RT-07','Boot sequence: ROM -> bootloader -> firmware; secure boot / chain of trust'),
+   it('RT-08','Firmware update: A/B partitions, rollback, image verification'),
+   it('RT-09','Peripherals: GPIO, UART, SPI, I2C, PCIe basics'),
+   it('RT-10','DMA: setup, cache coherency issues, descriptors'),
+ ]},
+ {id:'lk', title:'6.3 Linux Kernel (important for Platforms Infra roles)', phase:'P2', group:'sys', items:[
+   it('LK-01','Build and boot a custom kernel in QEMU'),
+   it('LK-02','Hello-world loadable kernel module (insmod, dmesg)'),
+   it('LK-03','Character device driver with read/write/ioctl'),
+   it('LK-04','Device tree basics; platform drivers'),
+   it('LK-05','Interrupt handling: top half / bottom half, tasklets, workqueues, threaded IRQs'),
+   it('LK-06','Kernel locking: spinlocks, mutexes, RCU (concept)'),
+   it('LK-07','Kernel memory: kmalloc vs vmalloc, GFP flags, DMA API'),
+   it('LK-08','sysfs / procfs / debugfs interfaces'),
+   it('LK-09','Debugging: printk, ftrace, perf, kernel oops reading'),
+   it('LK-10','PCIe driver skeleton (probe/remove, BARs, MSI-X) - concept level'),
+ ]},
+ {id:'ca', title:'6.4 Computer Architecture', phase:'P2', group:'sys', items:[
+   it('CA-01','CPU pipeline, branch prediction'),
+   it('CA-02','Cache hierarchy, lines, associativity, false sharing'),
+   it('CA-03','Memory-mapped I/O vs port I/O'),
+   it('CA-04','MMU / MPU differences'),
+   it('CA-05','ARM vs x86 basics; ARM exception levels'),
+   it('CA-06','Memory ordering on ARM vs x86'),
+   it('CA-07','Accelerators at a high level (what firmware does on a TPU/GPU-class device)'),
+   it('CA-08','Server platform basics: BMC, BIOS/UEFI, power sequencing, telemetry'),
+ ]},
+ {id:'sd', title:'7. Embedded System Design Practice', phase:'P3', group:'design', items:[
+   it('SD-01','Design firmware for a temperature/fan controller on a server board'),
+   it('SD-02','Design a firmware update system for a fleet of devices (A/B, rollback, signing)'),
+   it('SD-03','Design a sensor data-logging device (sampling, buffering, flash wear)'),
+   it('SD-04','Design telemetry collection from 1000s of accelerator boards in a data center'),
+   it('SD-05','Design a bootloader with secure boot'),
+   it('SD-06','Design a driver + user-space interface for a new PCIe device'),
+   it('SD-07','Design a power-sequencing / fault-handling state machine'),
+   it('SD-08','Design a medical-device-grade logging & fault recovery scheme (leverage domain experience)'),
+ ]},
+ {id:'bh', title:'8. Behavioral / Googleyness & Leadership', phase:'P3', group:'behavioral', items:[
+   it('BH-01','Hardest bug you\'ve debugged (on real hardware, ideally)'),
+   it('BH-02','Delivered under a tight regulatory or quality constraint'),
+   it('BH-03','Disagreed with a teammate/lead and resolved it'),
+   it('BH-04','Led something without formal authority'),
+   it('BH-05','A failure and what changed afterward'),
+   it('BH-06','Ambiguous problem you structured and drove'),
+   it('BH-07','Mentored or helped someone grow'),
+   it('BH-08','Improved a process/tool that saved team time'),
+   it('BH-09','"Why this company / why this team" - written answer'),
+   it('BH-10','60-second "tell me about yourself"'),
+   it('BH-11','Resume rewritten with impact bullets (metrics, scope, tech)'),
+   it('BH-12','2 personal projects polished on GitHub with READMEs'),
+ ]},
+ {id:'mk', title:'9.1 Mocks', phase:'P4', group:'mock', items:[
+   it('MK-01','Mock #1 - DSA (45 min, timed, talk out loud)'),
+   it('MK-02','Mock #2 - DSA'),
+   it('MK-03','Mock #3 - Embedded C / bit manipulation'),
+   it('MK-04','Mock #4 - Embedded system design'),
+   it('MK-05','Mock #5 - Behavioral'),
+   it('MK-06','Mock #6 - Full loop simulation (4 rounds in one day)'),
+ ]},
+ {id:'ap', title:'9.2 Applications', phase:'P4', group:'apply', items:[
+   it('AP-01','Update LinkedIn headline + "open to work" (recruiters only)'),
+   it('AP-02','Identify 3 referrers at Google (alumni / ex-colleagues)'),
+   it('AP-03','Apply to target Google role with referral'),
+   it('AP-04','Apply to 2 Apple embedded/firmware roles'),
+   it('AP-05','Apply to 2 NVIDIA / Qualcomm roles'),
+   it('AP-06','Apply to 2 infra-hardware roles (Meta Infra / AWS Annapurna / Azure HW)'),
+   it('AP-07','Ask each recruiter the H1B transfer + PERM timing question'),
+ ]},
+];
+
+const LINKS = [
+ {text:'USCIS - H-1B Specialty Occupations', url:'https://www.uscis.gov/working-in-the-united-states/h-1b-specialty-occupations', section:'Career & Visa'},
+ {text:'Target job posting - Google Embedded/Firmware, Platforms Infra', url:'https://www.google.com/about/careers/applications/jobs/results/89197271123403462-senior-software-engineer-embedded-systemsfirmware-platforms-infrastructure-engineering', section:'Career & Visa'},
+ {text:'Google Careers search', url:'https://www.google.com/about/careers/applications/jobs/results/', section:'Career & Visa'},
+ {text:'Levels.fyi - compensation data', url:'https://www.levels.fyi/', section:'Career & Visa'},
+ {text:'LeetCode', url:'https://leetcode.com/', section:'DSA'},
+ {text:'NeetCode Roadmap', url:'https://neetcode.io/roadmap', section:'DSA'},
+ {text:'Tech Interview Handbook', url:'https://www.techinterviewhandbook.org/', section:'DSA'},
+ {text:'Grind 75', url:'https://www.techinterviewhandbook.org/grind75', section:'DSA'},
+ {text:'cppreference', url:'https://en.cppreference.com/', section:'Language Depth'},
+ {text:'Compiler Explorer (Godbolt)', url:'https://godbolt.org/', section:'Language Depth'},
+ {text:"Beej's Guide to C Programming", url:'https://beej.us/guide/bgc/', section:'Language Depth'},
+ {text:'OSTEP - Operating Systems: Three Easy Pieces', url:'https://pages.cs.wisc.edu/~remzi/OSTEP/', section:'Systems Knowledge'},
+ {text:'Linux Kernel Documentation', url:'https://www.kernel.org/doc/html/latest/', section:'Systems Knowledge'},
+ {text:'Linux Device Drivers, 3rd Ed (LDD3, free)', url:'https://lwn.net/Kernel/LDD3/', section:'Systems Knowledge'},
+ {text:'Linux Kernel Labs', url:'https://linux-kernel-labs.github.io/', section:'Systems Knowledge'},
+ {text:'Bootlin training materials', url:'https://bootlin.com/docs/', section:'Systems Knowledge'},
+ {text:'FreeRTOS documentation', url:'https://www.freertos.org/', section:'Systems Knowledge'},
+ {text:'Zephyr Project documentation', url:'https://docs.zephyrproject.org/', section:'Systems Knowledge'},
+ {text:'Interrupt blog (Memfault)', url:'https://interrupt.memfault.com/', section:'Systems Knowledge'},
+];
+
+const PIPELINE_SEED = [
+ {company:'Google', role:'SWE, Embedded/Firmware, Platforms Infra', link:'https://www.google.com/about/careers/applications/jobs/results/89197271123403462-senior-software-engineer-embedded-systemsfirmware-platforms-infrastructure-engineering', referral:'', status:'Researching', next:'Find referrer', date:''},
+ {company:'Apple', role:'', link:'', referral:'', status:'Researching', next:'', date:''},
+ {company:'NVIDIA', role:'', link:'', referral:'', status:'Researching', next:'', date:''},
+ {company:'Qualcomm', role:'', link:'', referral:'', status:'Researching', next:'', date:''},
+];
+const STATUS_OPTS = ['Researching','Applied','Recruiter screen','Phone screen','Onsite','Offer','Rejected'];
+
+/* ===================== STATE ===================== */
+const LS_KEY = 'embedded_faang_tracker_v1';
+let state = loadState();
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return {done:{}, startDate:null, theme:null, pipeline: JSON.parse(JSON.stringify(PIPELINE_SEED)), weeklog:{}, streakDays:{}, collapsed:{}};
+}
+function saveState(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+
+function allTasks(){
+  const out = [];
+  SECTIONS.forEach(s => s.items.forEach(i => out.push({...i, sectionId:s.id, phase:s.phase, group:s.group})));
+  return out;
+}
+
+/* ===================== THEME ===================== */
+function applyTheme(){
+  const t = state.theme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light');
+  if(t === 'light') document.documentElement.setAttribute('data-theme','light');
+  else document.documentElement.removeAttribute('data-theme');
+}
+document.getElementById('themeBtn').addEventListener('click', ()=>{
+  const current = state.theme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light');
+  state.theme = current === 'dark' ? 'light' : 'dark';
+  saveState(); applyTheme();
+});
+applyTheme();
+
+/* ===================== TABS ===================== */
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('view-'+tab.dataset.view).classList.add('active');
+  });
+});
+
+/* ===================== TRACKER RENDER ===================== */
+let filterStatus = 'all';
+let filterPhase = 'all';
+let searchTerm = '';
+
+function markDoneToday(){
+  const today = new Date().toISOString().slice(0,10);
+  state.streakDays[today] = true;
+}
+
+function toggleTask(id){
+  if(state.done[id]) delete state.done[id];
+  else { state.done[id] = Date.now(); markDoneToday(); }
+  saveState();
+  renderAll();
+}
+
+function taskMatches(task){
+  if(filterStatus === 'open' && state.done[task.id]) return false;
+  if(filterStatus === 'done' && !state.done[task.id]) return false;
+  if(filterPhase !== 'all' && task.phase !== filterPhase) return false;
+  if(searchTerm){
+    const hay = (task.id+' '+task.text).toLowerCase();
+    if(!hay.includes(searchTerm.toLowerCase())) return false;
+  }
+  return true;
+}
+
+function leetcodeSlug(text){
+  return text.toLowerCase()
+    .replace(/[^a-z0-9\s-]/g,'')
+    .trim()
+    .replace(/\s+/g,'-');
+}
+
+function renderSections(){
+  const container = document.getElementById('sectionsContainer');
+  container.innerHTML = '';
+  SECTIONS.forEach(sec=>{
+    const visibleItems = sec.items.filter(taskMatches);
+    if(visibleItems.length === 0 && (searchTerm || filterStatus!=='all' || filterPhase!=='all')) return;
+    const doneCount = sec.items.filter(i=>state.done[i.id]).length;
+    const wrap = document.createElement('div');
+    wrap.className = 'section';
+    const isOpen = state.collapsed[sec.id] !== true;
+    wrap.innerHTML = `
+      <div class="section-head" data-sec="${sec.id}">
+        <span class="tri">${isOpen?'▼':'▶'}</span>
+        <span class="title">${sec.title}</span>
+        <span class="phase-tag">${sec.phase}</span>
+        <span class="count">${doneCount}/${sec.items.length}</span>
+      </div>
+      <div class="section-body ${isOpen?'open':''}" id="body-${sec.id}">
+        <ul class="items"></ul>
+      </div>
+    `;
+    const ul = wrap.querySelector('ul.items');
+    visibleItems.forEach(i=>{
+      const li = document.createElement('li');
+      const isDone = !!state.done[i.id];
+      if(isDone) li.classList.add('done');
+      const isDsaLeet = i.id.startsWith('DSA-');
+      let lcLink = '';
+      if(isDsaLeet){
+        const slug = leetcodeSlug(i.text);
+        lcLink = `<a class="lc" href="https://leetcode.com/problems/${slug}/" target="_blank" rel="noopener">LC ↗</a>`;
+      }
+      li.innerHTML = `
+        <input type="checkbox" ${isDone?'checked':''} data-id="${i.id}">
+        <span class="idtag">${i.id}</span>
+        ${i.diff ? `<span class="diff ${i.diff}">${i.diff}</span>` : ''}
+        <span class="text" style="flex:1;">${i.text}</span>
+        ${lcLink}
+      `;
+      li.querySelector('input').addEventListener('change', ()=>toggleTask(i.id));
+      ul.appendChild(li);
+    });
+    container.appendChild(wrap);
+  });
+  container.querySelectorAll('.section-head').forEach(h=>{
+    h.addEventListener('click', ()=>{
+      const id = h.dataset.sec;
+      state.collapsed[id] = state.collapsed[id] !== true;
+      saveState();
+      renderSections();
+    });
+  });
+}
+
+document.getElementById('searchBox').addEventListener('input', e=>{ searchTerm = e.target.value; renderSections(); });
+document.querySelectorAll('#statusSeg button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('#statusSeg button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    filterStatus = b.dataset.v;
+    renderSections();
+  });
+});
+document.getElementById('phaseFilter').addEventListener('change', e=>{ filterPhase = e.target.value; renderSections(); });
+document.getElementById('expandAll').addEventListener('click', ()=>{
+  SECTIONS.forEach(s=>state.collapsed[s.id]=false); saveState(); renderSections();
+});
+document.getElementById('collapseAll').addEventListener('click', ()=>{
+  SECTIONS.forEach(s=>state.collapsed[s.id]=true); saveState(); renderSections();
+});
+
+/* ===================== DASHBOARD RENDER ===================== */
+function computeStreak(){
+  let streak = 0;
+  let d = new Date();
+  while(true){
+    const key = d.toISOString().slice(0,10);
+    if(state.streakDays[key]){ streak++; d.setDate(d.getDate()-1); }
+    else break;
+  }
+  return streak;
+}
+
+function renderDashboard(){
+  const tasks = allTasks();
+  const total = tasks.length;
+  const done = tasks.filter(t=>state.done[t.id]).length;
+  const pct = total ? Math.round(done/total*100) : 0;
+  document.getElementById('overallPct').textContent = pct+'%';
+  document.getElementById('overallBar').style.width = pct+'%';
+  document.getElementById('overallCount').textContent = `${done} of ${total} tasks complete`;
+
+  document.getElementById('statDone').textContent = done;
+  document.getElementById('statTotal').textContent = total;
+  const streak = computeStreak();
+  document.getElementById('statStreak').textContent = streak;
+  document.getElementById('streakDisplay').textContent = streak>0 ? `🔥 ${streak} day streak` : '';
+
+  const dsaTasks = tasks.filter(t=>t.group==='dsa');
+  document.getElementById('statDsaDone').textContent = dsaTasks.filter(t=>state.done[t.id]).length + '/' + dsaTasks.length;
+
+  document.getElementById('statApplied').textContent = state.pipeline.filter(r=>r.status && r.status!=='Researching').length;
+
+  // Today panel
+  const startVal = state.startDate;
+  document.getElementById('startDate').value = startVal || '';
+  if(startVal){
+    const start = new Date(startVal+'T00:00:00');
+    const now = new Date();
+    const diffDays = Math.floor((now - start) / 86400000);
+    let week = Math.floor(diffDays/7) + 1;
+    if(week < 1) week = 1;
+    if(week > 16) week = 16;
+    const row = TIMELINE.find(r=>r.week===week) || TIMELINE[0];
+    document.getElementById('todayWeek').textContent = 'Week '+week;
+    document.getElementById('todayPhase').textContent = row.phase;
+    document.getElementById('todayFocus').textContent = row.focus;
+    document.getElementById('todayExit').textContent = 'Exit criterion: '+row.exit;
+    const phaseTasks = tasks.filter(t=>t.phase===row.phase);
+    document.getElementById('statWeekDone').textContent = phaseTasks.filter(t=>state.done[t.id]).length+'/'+phaseTasks.length;
+  } else {
+    document.getElementById('todayWeek').textContent = 'Set a start date';
+    document.getElementById('todayPhase').textContent = '—';
+    document.getElementById('todayFocus').textContent = '';
+    document.getElementById('todayExit').textContent = '';
+    document.getElementById('statWeekDone').textContent = '0/0';
+  }
+
+  // Phase bars
+  const phaseBarsEl = document.getElementById('phaseBars');
+  phaseBarsEl.innerHTML = '';
+  Object.keys(PHASES).forEach(ph=>{
+    const pt = tasks.filter(t=>t.phase===ph);
+    const pd = pt.filter(t=>state.done[t.id]).length;
+    const pp = pt.length ? Math.round(pd/pt.length*100) : 0;
+    const row = document.createElement('div');
+    row.className = 'progress-row';
+    row.innerHTML = `<div class="label">${ph} - ${PHASES[ph]}</div><div class="pbar"><div style="width:${pp}%"></div></div><div class="pct">${pd}/${pt.length}</div>`;
+    phaseBarsEl.appendChild(row);
+  });
+
+  // Section bars
+  const secBarsEl = document.getElementById('sectionBars');
+  secBarsEl.innerHTML = '';
+  SECTIONS.forEach(sec=>{
+    const sd = sec.items.filter(i=>state.done[i.id]).length;
+    const sp = sec.items.length ? Math.round(sd/sec.items.length*100) : 0;
+    const row = document.createElement('div');
+    row.className = 'progress-row';
+    row.innerHTML = `<div class="label">${sec.title}</div><div class="pbar"><div style="width:${sp}%"></div></div><div class="pct">${sd}/${sec.items.length}</div>`;
+    secBarsEl.appendChild(row);
+  });
+}
+
+document.getElementById('startDate').addEventListener('change', e=>{
+  state.startDate = e.target.value;
+  saveState();
+  renderDashboard();
+});
+
+/* ===================== PIPELINE ===================== */
+function renderPipeline(){
+  const body = document.getElementById('pipelineBody');
+  body.innerHTML = '';
+  state.pipeline.forEach((row, idx)=>{
+    const tr = document.createElement('tr');
+    const statusOptions = STATUS_OPTS.map(o=>`<option value="${o}" ${row.status===o?'selected':''}>${o}</option>`).join('');
+    tr.innerHTML = `
+      <td contenteditable="true" data-field="company">${row.company||''}</td>
+      <td contenteditable="true" data-field="role">${row.role||''}</td>
+      <td contenteditable="true" data-field="link">${row.link ? `<a href="${row.link}" target="_blank" rel="noopener">link</a>` : ''}</td>
+      <td contenteditable="true" data-field="referral">${row.referral||''}</td>
+      <td><select class="status-sel" data-field="status">${statusOptions}</select></td>
+      <td contenteditable="true" data-field="next">${row.next||''}</td>
+      <td contenteditable="true" data-field="date">${row.date||''}</td>
+      <td><button class="btn small-btn" data-del="${idx}">✕</button></td>
+    `;
+    tr.querySelectorAll('[contenteditable]').forEach(cell=>{
+      cell.addEventListener('blur', ()=>{
+        const field = cell.dataset.field;
+        if(field === 'link'){
+          const a = cell.querySelector('a');
+          row.link = a ? a.href : cell.textContent.trim();
+        } else {
+          row[field] = cell.textContent.trim();
+        }
+        saveState();
+      });
+    });
+    tr.querySelector('select').addEventListener('change', e=>{
+      row.status = e.target.value; saveState(); renderDashboard();
+    });
+    tr.querySelector('[data-del]').addEventListener('click', ()=>{
+      state.pipeline.splice(idx,1); saveState(); renderPipeline(); renderDashboard();
+    });
+    body.appendChild(tr);
+  });
+}
+document.getElementById('addRowBtn').addEventListener('click', ()=>{
+  state.pipeline.push({company:'',role:'',link:'',referral:'',status:'Researching',next:'',date:''});
+  saveState(); renderPipeline();
+});
+
+/* ===================== WEEKLY LOG ===================== */
+function renderWeeklog(){
+  const body = document.getElementById('weeklogBody');
+  body.innerHTML = '';
+  for(let w=1; w<=16; w++){
+    const rec = state.weeklog[w] || {problems:'',topics:'',hours:'',notes:''};
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${w}</td>
+      <td contenteditable="true" data-field="problems">${rec.problems}</td>
+      <td contenteditable="true" data-field="topics">${rec.topics}</td>
+      <td contenteditable="true" data-field="hours">${rec.hours}</td>
+      <td contenteditable="true" data-field="notes">${rec.notes}</td>
+    `;
+    tr.querySelectorAll('[contenteditable]').forEach(cell=>{
+      cell.addEventListener('blur', ()=>{
+        if(!state.weeklog[w]) state.weeklog[w] = {problems:'',topics:'',hours:'',notes:''};
+        state.weeklog[w][cell.dataset.field] = cell.textContent.trim();
+        saveState();
+      });
+    });
+    body.appendChild(tr);
+  }
+}
+
+/* ===================== LINKS ===================== */
+function renderLinks(filter){
+  const list = document.getElementById('linksList');
+  list.innerHTML = '';
+  LINKS.filter(l=>!filter || (l.text+l.section).toLowerCase().includes(filter.toLowerCase())).forEach(l=>{
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="sec-tag">${l.section}</span><a href="${l.url}" target="_blank" rel="noopener">${l.text}</a>`;
+    list.appendChild(li);
+  });
+}
+document.getElementById('linkSearch').addEventListener('input', e=>renderLinks(e.target.value));
+
+/* ===================== EXPORT / IMPORT ===================== */
+document.getElementById('exportBtn').addEventListener('click', ()=>{
+  const blob = new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'embedded_faang_tracker_backup_'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+document.getElementById('importBtn').addEventListener('click', ()=>document.getElementById('importFile').click());
+document.getElementById('importFile').addEventListener('change', e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const imported = JSON.parse(reader.result);
+      state = Object.assign({done:{},startDate:null,theme:null,pipeline:[],weeklog:{},streakDays:{},collapsed:{}}, imported);
+      saveState();
+      applyTheme();
+      renderAll();
+    }catch(err){ alert('Invalid backup file.'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+/* ===================== INIT ===================== */
+function renderAll(){
+  renderSections();
+  renderDashboard();
+  renderPipeline();
+  renderWeeklog();
+  renderLinks('');
+}
+renderAll();
+</script>
+</body>
+</html>
